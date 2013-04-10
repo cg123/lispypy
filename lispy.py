@@ -21,6 +21,15 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+try:
+	from rpython.rlib.jit import JitDriver
+	from rpython.jit.codewriter.policy import JitPolicy
+except ImportError:
+	class JitDriver(object):
+		def __init__(self, *args, **kw): pass
+		def jit_merge_point(self, *args, **kw): pass
+		def can_enter_jit(self, *args, **kw): pass
+
 class Characters(object):
 	TOKEN_VALID = (
 		'abcdefghijklmnopqrstuvwxyz'+
@@ -33,17 +42,20 @@ class Characters(object):
 	SEXP_CLOSE = ')'
 	COMMENT = ';'
 
+jitdriver = JitDriver(greens=['in_token','in_comment','c'], reds=['fp','tokens','current_token'])
 
 def tokenize(fp):
 	'''
 	Tokenize a LISP script from a file descriptor.
 	'''
+
 	tokens = []
 	in_token = False
 	in_comment = False
 	current_token = []
 	c = os.read(fp, 1)
 	while len(c) > 0:
+		jitdriver.jit_merge_point(c=c, fp=fp, in_token=in_token, in_comment=in_comment, tokens=tokens, current_token=current_token)
 		if in_comment:
 			# We're in a comment. Do nothing.
 			if c in Characters.ENDLINE:
@@ -71,6 +83,12 @@ def tokenize(fp):
 		c = os.read(fp, 1)
 	return tokens
 
+def parse(tokens):
+	'''
+	Transform a list of tokens into a S-expression.
+	'''
+	pass
+
 import os
 import sys
 
@@ -86,6 +104,8 @@ def entry_point(argv):
 
 def target(*args):
 	return entry_point, None
+def jitpolicy(driver):
+	return JitPolicy()
 
 if __name__=='__main__':
 	sys.exit(entry_point(sys.argv))
