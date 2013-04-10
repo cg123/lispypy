@@ -34,37 +34,58 @@ class Characters(object):
 	COMMENT = ';'
 
 
-def tokenize(f):
+def tokenize(fp):
 	'''
-	Tokenize a LISP script from a file-like object.
+	Tokenize a LISP script from a file descriptor.
 	'''
+	tokens = []
 	in_token = False
 	in_comment = False
-	token = []
-	c = f.read(1)
+	current_token = []
+	c = os.read(fp, 1)
 	while len(c) > 0:
 		if in_comment:
+			# We're in a comment. Do nothing.
 			if c in Characters.ENDLINE:
+				# The line ended.
+				# We are no longer in a comment.
 				in_comment = False
 		elif in_token:
+			# We are in the midst of processing a token.
 			if c not in Characters.TOKEN_VALID:
+				# The token has ended. Add it to the list.
 				in_token = False
-				yield ''.join(token)
+				tokens.append(''.join(current_token))
+				# Don't skip the character - process it again.
 				continue
-			token.append(c)
+			current_token.append(c)
 		else:
+			# We are floating in a void.
 			if c in Characters.COMMENT:
 				in_comment = True
 			elif c in Characters.TOKEN_VALID:
 				in_token = True
-				token = [c]
+				current_token = [c]
 			elif c not in Characters.IGNORE:
-				yield c
-		c = f.read(1)
+				tokens.append(c)
+		c = os.read(fp, 1)
+	return tokens
 
-def main():
-	l='(begin (define n 3) (+ n n))'
-	import cStringIO
-	print list(tokenize(cStringIO.StringIO(l)))
+import os
+import sys
+
+def entry_point(argv):
+	try:
+		fp = os.open(argv[1], os.O_RDONLY, 0777)
+	except IndexError:
+		print "Usage: %s file" % argv[0]
+		return 1
+	else:
+		print(list(tokenize(fp)))
+	return 0
+
+def target(*args):
+	return entry_point, None
+
 if __name__=='__main__':
-	main()
+	sys.exit(entry_point(sys.argv))
