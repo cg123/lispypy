@@ -21,13 +21,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
-try:
-	from rpython.rlib.jit import purefunction
-except ImportError:
-	def purefunction(f): return f
-
 from tokenizer import Characters
+from common import purefunction
 import interpreter
 
 @purefunction
@@ -49,23 +44,23 @@ def parse_string(token):
 		res.append(c)
 
 @purefunction
-def atom(token, location):
+def atom(token):
 	try:
 		ival = int(token.value)
-		return interpreter.LispObject(interpreter.T_INT, val_int=ival, loc=location)
+		return interpreter.LispObject(interpreter.T_INT, val_int=ival, loc=token.location)
 	except ValueError:
 		pass
 	try:
 		fval = float(token.value)
-		return interpreter.LispObject(interpreter.T_FLOAT, val_float=fval, loc=location)
+		return interpreter.LispObject(interpreter.T_FLOAT, val_float=fval, loc=token.location)
 	except ValueError:
 		pass
 	try:
 		sval = parse_string(token.value)
-		return interpreter.LispObject(interpreter.T_STR, val_str=sval, loc=location)
+		return interpreter.LispObject(interpreter.T_STR, val_str=sval, loc=token.location)
 	except ValueError:
 		pass
-	return interpreter.LispObject(interpreter.T_REF, val_str=token.value, loc=location)
+	return interpreter.LispObject(interpreter.T_REF, val_str=token.value, loc=token.location)
 
 @purefunction
 def parse(tokens):
@@ -98,8 +93,9 @@ def parse(tokens):
 		raise SyntaxError("Unexpected %s" % Characters.SEXP_CLOSE)
 	elif token.value == Characters.QUOTE:
 		return interpreter.LispObject(interpreter.T_CONS,
-			car=atom('quote'), cdr=parse(tokens), loc=token.location)
-	return atom(token, token.location)
+			car=interpreter.LispObject(interpreter.T_REF, val_str='quote', loc=token.location),
+			cdr=parse(tokens), loc=token.location)
+	return atom(token)
 
 def parse_all(tokens):
 	res = []

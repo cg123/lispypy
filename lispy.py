@@ -24,7 +24,7 @@
 import os
 import sys
 
-import tokenizer, parser, interpreter
+import tokenizer, parser, interpreter, common
 
 def entry_point(argv):
 	try:
@@ -48,8 +48,8 @@ def entry_point(argv):
 							res = interp.evaluate(exp, interp.root)
 							if res.type_ != interpreter.T_NIL:
 								print res.repr_lisp()
-					except Exception, e:
-						print e
+					except common.LispError, e:
+						print '!! At %s:\n\t%s' % (e.location.repr(), e.message)
 			except KeyboardInterrupt:
 				pass
 		else:
@@ -57,8 +57,8 @@ def entry_point(argv):
 				tokens = tokenizer.tokenize(fd, argv[1])
 				for o in parser.parse_all(tokens):
 					interp.evaluate(o, interp.root)
-			except Exception, e:
-				print e
+			except interpreter.LispError, e:
+				print '!! At %s:\n\t%s' % (e.location.repr(), e.message)
 	return 0
 
 import sys

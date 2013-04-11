@@ -6,7 +6,7 @@
 #
 # 1. Redistributions of source code must retain the above copyright notice, this
 #    list of conditions and the following disclaimer. 
-# 2. Redistributions in binary form must lispobject.a2ioduce the above copyright notice,
+# 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution. 
 # 
@@ -22,23 +22,8 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from lispobject import *
+from common import LispError, JitDriver, a2i_list, i2a_list, a2i_str
 import builtin
-
-try:
-	from rpython.rlib.objectmodel import r_dict, _hash_string
-except ImportError:
-	class r_dict(dict):
-		def __init__(self, key_eq, key_hash, force_non_null=False): super(r_dict, self).__init__()
-	_hash_string = None
-	pass
-
-try:
-	from rpython.rlib.jit import JitDriver
-except ImportError:
-	class JitDriver(object):
-		def __init__(self, *args, **kw): pass
-		def jit_merge_point(self, *args, **kw): pass
-		def can_enter_jit(self, *args, **kw): pass
 
 class Environment(object):
 	'''
@@ -90,10 +75,10 @@ class Interpreter(object):
 		if sexp.type_ == T_REF:
 			# Evaluate a reference.
 			if sexp.val_str is None:
-				raise ValueError('Lookup of null name at %s' % (sexp.loc.repr()))
+				raise LispError('Lookup of null name', sexp.loc)
 			containing = env.find(sexp.val_str)
 			if not containing:
-				raise NameError('Name "%s" undefined at %s' % (sexp.val_str, sexp.loc.repr()))
+				raise LispError('Name "%s" undefined' % (sexp.val_str), sexp.loc)
 			return containing.get(sexp.val_str)
 		elif sexp.type_ in (T_NIL, T_INT, T_FLOAT, T_STR):
 			# Constant literal.
@@ -115,7 +100,7 @@ class Interpreter(object):
 					name = self.check_ref(var)
 					containing = env.find(name)
 					if not containing:
-						raise NameError(name, var.loc)
+						raise LispError('Name "%s" undefined' % (name,), var.loc)
 					containing.set(name, self.evaluate(exp, env))
 					return LispObject(T_NIL)
 				elif sexp.car.val_str == 'begin':
@@ -135,7 +120,14 @@ class Interpreter(object):
 			expressions = a2i_list(sexp)
 			proc = self.evaluate(expressions.pop(0), env)
 			if proc.type_ == T_PROC:
-				return proc.func(self, [self.evaluate(e, env) for e in expressions], env)
+				try:
+					return proc.func(self, [self.evaluate(e, env) for e in expressions], env)
+				except LispError, e:
+					if e.location == None:
+						raise LispError(e.message, sexp.loc)
+					raise
+				except Exception, e:
+					print e
 			elif proc.type_ == T_CLOSURE:
 				return self.evaluate(proc.cdr,
 					Environment([a2i_str(s) for s in a2i_list(proc.car)],
@@ -149,35 +141,35 @@ class Interpreter(object):
 						to_resolve=params),
 					env)
 			else:
-				raise TypeError(proc.type_)
+				raise LispError("Attempt to call %s" % (type_name(proc.type_),), proc.loc)
 		else:
-			raise RuntimeError('Unknown object type %s at %s' % (sexp.type_, sexp.loc.repr()))
+			raise LispError('Unknown object type %s' % (sexp.type_,), sexp.loc)
 
 	def check_int(self, o):
 		if o.type_ != T_INT:
-			raise TypeError('Expected %s, got %s' % (type_name(T_INT), type_name(o.type_)))
+			raise LispError('Expected %s, got %s' % (type_name(T_INT), type_name(o.type_)), o.loc)
 		return o.val_int
 	def check_float(self, o):
 		if o.type_ == T_INT:
 			return float(o.val_int)
 		elif o.type_ == T_FLOAT:
 			return o.val_float
-		raise TypeError('Expected %s, got %s' % (type_name(T_FLOAT), type_name(o.type_)))
+		raise LispError('Expected %s, got %s' % (type_name(T_FLOAT), type_name(o.type_)), o.loc)
 	def check_str(self, o):
 		if o.type_ != T_STR:
-			raise TypeError('Expected %s, got %s' % (type_name(T_STR), type_name(o.type_)))
+			raise LispError('Expected %s, got %s' % (type_name(T_STR), type_name(o.type_)), o.loc)
 		return o.val_str
 	def check_ref(self, o):
 		if o.type_ != T_REF:
-			raise TypeError('Expected %s, got %s' % (type_name(T_STR), type_name(o.type_)))
+			raise LispError('Expected %s, got %s' % (type_name(T_STR), type_name(o.type_)), o.loc)
 		return o.val_str
 	def check_unique(self, o):
 		if o.type_ != T_UNIQUE:
-			raise TypeError('Expected %s, got %s' % (type_name(T_STR), type_name(o.type_)))
+			raise LispError('Expected %s, got %s' % (type_name(T_STR), type_name(o.type_)), o.loc)
 		return o.val_str
 	def check_cons(self, o):
 		if o.type_ != T_CONS:
-			raise TypeError('Expected %s, got %s' % (type_name(T_CONS), type_name(o.type_)))
+			raise LispError('Expected %s, got %s' % (type_name(T_CONS), type_name(o.type_)), o.loc)
 		return o.car, o.cdr
 
 	def add_builtins(self):

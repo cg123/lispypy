@@ -21,15 +21,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Type constants
-T_NIL, T_CONS, T_INT, T_FLOAT, T_STR, T_REF, T_PROC, T_CLOSURE, T_UNIQUE, T_MACRO = range(10)
-
-
-_type2name = dict(zip([T_NIL, T_CONS, T_INT, T_FLOAT, T_STR, T_REF, T_PROC, T_CLOSURE, T_UNIQUE, T_MACRO],
-	['T_NIL', 'T_CONS', 'T_INT', 'T_FLOAT', 'T_STR', 'T_REF', 'T_PROC', 'T_CLOSURE', 'T_UNIQUE', 'T_MACRO']))
-def type_name(t):
-	return _type2name[t]
-
+from common import *
 
 class LispObject(object):
 	def __init__(self, type_=T_NIL,
@@ -104,29 +96,3 @@ class LispObject(object):
 			return head + "(T_MACRO, val_str=%s, car=%s, cdr=%s)" % (self.repr_lisp_str(), self.car.repr_py(), self.cdr.repr_py())
 	def __repr__(self):
 		return self.repr_py()
-
-def i2a_list(l):
-	res = LispObject(T_CONS, car=l.pop(0))
-	leaf = res
-	while l:
-		leaf.cdr = LispObject(T_CONS, car=l.pop(0))
-		leaf = leaf.cdr
-	leaf.cdr = LispObject(T_NIL)
-	return res
-
-def a2i_list(l):
-	res = []
-	node = l
-	while node.type_ == T_CONS:
-		res.append(node.car)
-		node = node.cdr
-	if node.type_ != T_NIL:
-		res.append(node)
-	return res
-
-def i2a_str(s):
-	return LispObject(T_STR, val_str=s)
-def a2i_str(s):
-	if s.type_ not in (T_STR, T_REF):
-		raise TypeError(s)
-	return s.val_str

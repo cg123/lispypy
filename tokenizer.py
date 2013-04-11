@@ -21,19 +21,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-try:
-	from rpython.rlib.jit import JitDriver
-	from rpython.rlib.objectmodel import enforceargs
-	from rpython.rlib.rarithmetic import r_uint
-except ImportError:
-	class JitDriver(object):
-		def __init__(self, *args, **kw): pass
-		def jit_merge_point(self, *args, **kw): pass
-		def can_enter_jit(self, *args, **kw): pass
-	def enforceargs(*a, **kw): return lambda f: f
-	r_uint = int
-
 import os
+
+from common import JitDriver, enforceargs, r_uint
 
 class Characters(object):
 	TOKEN_VALID = (
