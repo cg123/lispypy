@@ -22,7 +22,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from lispobject import *
-from common import LispError, JitDriver, a2i_list, i2a_list, a2i_str
+from common import LispError, JitDriver, a2i_list, i2a_list, a2i_str, purefunction
 import builtin
 
 class Environment(object):
@@ -50,7 +50,7 @@ class Environment(object):
 			return None
 		return self.outer.find(var)
 
-jitdriver = JitDriver(greens=['sexp'], reds=['env'])
+jitdriver = JitDriver(greens=['self_','sexp'], reds=['env'])
 
 class Interpreter(object):
 	'''
@@ -71,7 +71,7 @@ class Interpreter(object):
 		return sexp
 
 	def evaluate(self, sexp, env):
-		jitdriver.jit_merge_point(sexp=sexp, env=env)
+		jitdriver.jit_merge_point(self_=self, sexp=sexp, env=env)
 		if sexp.type_ == T_REF:
 			# Evaluate a reference.
 			if sexp.val_str is None:
@@ -145,32 +145,35 @@ class Interpreter(object):
 		else:
 			raise LispError('Unknown object type %s' % (sexp.type_,), sexp.loc)
 
+	@purefunction
 	def check_int(self, o):
 		if o.type_ != T_INT:
 			raise LispError('Expected %s, got %s' % (type_name(T_INT), type_name(o.type_)), o.loc)
 		return o.val_int
+	@purefunction
 	def check_float(self, o):
 		if o.type_ == T_INT:
 			return float(o.val_int)
 		elif o.type_ == T_FLOAT:
 			return o.val_float
 		raise LispError('Expected %s, got %s' % (type_name(T_FLOAT), type_name(o.type_)), o.loc)
+	@purefunction
 	def check_str(self, o):
 		if o.type_ != T_STR:
 			raise LispError('Expected %s, got %s' % (type_name(T_STR), type_name(o.type_)), o.loc)
 		return o.val_str
+	@purefunction
 	def check_ref(self, o):
 		if o.type_ != T_REF:
 			raise LispError('Expected %s, got %s' % (type_name(T_STR), type_name(o.type_)), o.loc)
 		return o.val_str
+	@purefunction
 	def check_unique(self, o):
 		if o.type_ != T_UNIQUE:
 			raise LispError('Expected %s, got %s' % (type_name(T_STR), type_name(o.type_)), o.loc)
 		return o.val_str
+	@purefunction
 	def check_cons(self, o):
 		if o.type_ != T_CONS:
 			raise LispError('Expected %s, got %s' % (type_name(T_CONS), type_name(o.type_)), o.loc)
 		return o.car, o.cdr
-
-	def add_builtins(self):
-		pass

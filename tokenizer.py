@@ -23,7 +23,7 @@
 
 import os
 
-from common import JitDriver, enforceargs, r_uint
+from common import enforceargs, r_uint, JitDriver
 
 class Characters(object):
 	TOKEN_VALID = (
@@ -41,7 +41,7 @@ class Characters(object):
 	QUOTE = "'"
 	ESCAPE = '\\'
 
-jitdriver = JitDriver(greens=['state','c'], reds=['fp','tokens','current_token'])
+jitdriver = JitDriver(greens=['cur_line','cur_char','fp','state','eof','c','filename','token_start'], reds=['tokens','current_token'])
 
 class Location(object):
 	'''
@@ -87,7 +87,7 @@ def tokenize(fp, filename, eof=True):
 	token_start = Location(filename, 0, 0)
 	c = os.read(fp, 1)
 	while len(c) > 0:
-		jitdriver.jit_merge_point(state=state, c=c, fp=fp, tokens=tokens, current_token=current_token)
+		jitdriver.jit_merge_point(eof=eof, state=state, c=c, fp=fp, tokens=tokens, current_token=current_token, filename=filename, token_start=token_start, cur_line=cur_line, cur_char=cur_char)
 		if state == S_COMMENT:
 			# We're in a comment. Do nothing.
 			if c in Characters.ENDLINE:
