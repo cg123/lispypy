@@ -21,47 +21,11 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import os
-import sys
+import lispy
+from rpython.jit.codewriter.policy import JitPolicy
 
-import tokenizer, parser, interpreter
-
-def entry_point(argv):
-	try:
-		if argv[1] == '-':
-			fd = 0
-		else:
-			fd = os.open(argv[1], os.O_RDONLY, 0777)
-	except IndexError:
-		print "Usage: %s file" % argv[0]
-		return 1
-	else:
-		interp = interpreter.Interpreter()
-		if fd == 0:
-			try:
-				while True:
-					os.write(1, '> ')
-					try:
-						tokens = tokenizer.tokenize(fd, eof=False)
-						exps = parser.parse_all(tokens)
-						for exp in exps:
-							res = interp.evaluate(exp, interp.root)
-							if res.type_ != interpreter.T_NIL:
-								print res.repr_lisp()
-					except Exception, e:
-						print e
-			except KeyboardInterrupt:
-				pass
-		else:
-			try:
-				for o in parser.parse_all(tokenizer.tokenize(fd)):
-					interp.evaluate(o, interp.root)
-			except Exception, e:
-				print e
-				raise
-	return 0
-
-import sys
-
-if __name__ == '__main__':
-	sys.exit(entry_point(sys.argv))
+def target(driver, args):
+	driver.exe_name = 'lispypy-%(backend)s'
+	return lispy.entry_point, None
+def jitpolicy(driver):
+	return JitPolicy()
