@@ -1,3 +1,6 @@
 *.py[cod]
 /venv
 /pypy
+*.exe
+*.pdb
+*.suo
