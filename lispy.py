@@ -42,7 +42,7 @@ def entry_point(argv):
 				while True:
 					os.write(1, '> ')
 					try:
-						tokens = tokenizer.tokenize(fd, eof=False)
+						tokens = tokenizer.tokenize(fd, 'stdin', eof=False)
 						exps = parser.parse_all(tokens)
 						for exp in exps:
 							res = interp.evaluate(exp, interp.root)
@@ -54,11 +54,11 @@ def entry_point(argv):
 				pass
 		else:
 			try:
-				for o in parser.parse_all(tokenizer.tokenize(fd)):
+				tokens = tokenizer.tokenize(fd, argv[1])
+				for o in parser.parse_all(tokens):
 					interp.evaluate(o, interp.root)
 			except Exception, e:
 				print e
-				raise
 	return 0
 
 import sys

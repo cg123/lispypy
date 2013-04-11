@@ -49,23 +49,23 @@ def parse_string(token):
 		res.append(c)
 
 @purefunction
-def atom(token):
+def atom(token, location):
 	try:
 		ival = int(token.value)
-		return interpreter.LispObject(interpreter.T_INT, val_int=ival)
+		return interpreter.LispObject(interpreter.T_INT, val_int=ival, loc=location)
 	except ValueError:
 		pass
 	try:
 		fval = float(token.value)
-		return interpreter.LispObject(interpreter.T_FLOAT, val_float=fval)
+		return interpreter.LispObject(interpreter.T_FLOAT, val_float=fval, loc=location)
 	except ValueError:
 		pass
 	try:
 		sval = parse_string(token.value)
-		return interpreter.LispObject(interpreter.T_STR, val_str=sval)
+		return interpreter.LispObject(interpreter.T_STR, val_str=sval, loc=location)
 	except ValueError:
 		pass
-	return interpreter.LispObject(interpreter.T_REF, val_str=token.value)
+	return interpreter.LispObject(interpreter.T_REF, val_str=token.value, loc=location)
 
 @purefunction
 def parse(tokens):
@@ -78,15 +78,15 @@ def parse(tokens):
 	if token.value == Characters.SEXP_OPEN:
 		if tokens[0].value == Characters.SEXP_CLOSE:
 			tokens.pop(0)
-			return interpreter.LispObject(interpreter.T_NIL)
+			return interpreter.LispObject(interpreter.T_NIL, loc=token.location)
 		
-		res = interpreter.LispObject(interpreter.T_CONS)
+		res = interpreter.LispObject(interpreter.T_CONS, loc=token.location)
 		leaf = res
 		try:
 			while tokens[0].value != Characters.SEXP_CLOSE:
 				leaf.car = parse(tokens)
 				if tokens[0].value != Characters.SEXP_CLOSE:
-					leaf.cdr = interpreter.LispObject(interpreter.T_CONS)
+					leaf.cdr = interpreter.LispObject(interpreter.T_CONS, loc=tokens[0].location)
 				else:
 					leaf.cdr = interpreter.LispObject(interpreter.T_NIL)
 				leaf = leaf.cdr
@@ -97,8 +97,9 @@ def parse(tokens):
 	elif token.value == Characters.SEXP_CLOSE:
 		raise SyntaxError("Unexpected %s" % Characters.SEXP_CLOSE)
 	elif token.value == Characters.QUOTE:
-		return interpreter.LispObject(interpreter.T_CONS, car=atom('quote'), cdr=parse(tokens))
-	return atom(token)
+		return interpreter.LispObject(interpreter.T_CONS,
+			car=atom('quote'), cdr=parse(tokens), loc=token.location)
+	return atom(token, token.location)
 
 def parse_all(tokens):
 	res = []

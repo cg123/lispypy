@@ -33,7 +33,7 @@ def type_name(t):
 
 class LispObject(object):
 	def __init__(self, type_=T_NIL,
-		val_int=0, val_float=0, val_str=None, car=None, cdr=None, func=None):
+		val_int=0, val_float=0, val_str=None, car=None, cdr=None, func=None, loc=None):
 		self.type_ = type_
 
 		self.val_int = val_int
@@ -42,6 +42,8 @@ class LispObject(object):
 		self.car = car
 		self.cdr = cdr
 		self.func = func
+
+		self.loc = loc
 
 	def repr_lisp_str(self):
 		res = ['"']

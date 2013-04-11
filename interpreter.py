@@ -90,10 +90,10 @@ class Interpreter(object):
 		if sexp.type_ == T_REF:
 			# Evaluate a reference.
 			if sexp.val_str is None:
-				raise ValueError('Lookup of null name')
+				raise ValueError('Lookup of null name at %s' % (sexp.loc.repr()))
 			containing = env.find(sexp.val_str)
 			if not containing:
-				raise NameError('Name "%s" undefined' % sexp.val_str)
+				raise NameError('Name "%s" undefined at %s' % (sexp.val_str, sexp.loc.repr()))
 			return containing.get(sexp.val_str)
 		elif sexp.type_ in (T_NIL, T_INT, T_FLOAT, T_STR):
 			# Constant literal.
@@ -115,7 +115,7 @@ class Interpreter(object):
 					name = self.check_ref(var)
 					containing = env.find(name)
 					if not containing:
-						raise NameError(name)
+						raise NameError(name, var.loc)
 					containing.set(name, self.evaluate(exp, env))
 					return LispObject(T_NIL)
 				elif sexp.car.val_str == 'begin':
@@ -151,7 +151,7 @@ class Interpreter(object):
 			else:
 				raise TypeError(proc.type_)
 		else:
-			raise RuntimeError('Unknown object type %s' % sexp.type_)
+			raise RuntimeError('Unknown object type %s at %s' % (sexp.type_, sexp.loc.repr()))
 
 	def check_int(self, o):
 		if o.type_ != T_INT:
