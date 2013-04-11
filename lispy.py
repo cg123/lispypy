@@ -24,7 +24,7 @@
 import os
 import sys
 
-import tokenizer, parser, interpreter, common
+import tokenizer, lispparser, interpreter, common
 
 def entry_point(argv):
 	try:
@@ -43,7 +43,7 @@ def entry_point(argv):
 					os.write(1, '> ')
 					try:
 						tokens = tokenizer.tokenize(fd, 'stdin', eof=False)
-						exps = parser.parse_all(tokens)
+						exps = lispparser.parse_all(tokens)
 						for exp in exps:
 							res = interp.evaluate(exp, interp.root)
 							if res.type_ != interpreter.T_NIL:
@@ -55,7 +55,7 @@ def entry_point(argv):
 		else:
 			try:
 				tokens = tokenizer.tokenize(fd, argv[1])
-				for o in parser.parse_all(tokens):
+				for o in lispparser.parse_all(tokens):
 					interp.evaluate(o, interp.root)
 			except interpreter.LispError, e:
 				print '!! At %s:\n\t%s' % (e.location.repr(), e.message)
