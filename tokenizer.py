@@ -23,11 +23,15 @@
 
 try:
 	from rpython.rlib.jit import JitDriver
+	from rpython.rlib.objectmodel import enforceargs
+	from rpython.rlib.rarithmetic import r_uint
 except ImportError:
 	class JitDriver(object):
 		def __init__(self, *args, **kw): pass
 		def jit_merge_point(self, *args, **kw): pass
 		def can_enter_jit(self, *args, **kw): pass
+	def enforceargs(*a, **kw): return lambda f: f
+	r_uint = int
 
 import os
 
@@ -49,17 +53,48 @@ class Characters(object):
 
 jitdriver = JitDriver(greens=['state','c'], reds=['fp','tokens','current_token'])
 
-def tokenize(fp, eof=True):
+class Location(object):
+	'''
+	Represents the location of a parsed token.
+	'''
+	@enforceargs(None, str, r_uint, r_uint)
+	def __init__(self, filename, line, character):
+		self.filename = filename
+		self.line = line
+		self.character = character
+
+	def repr(self):
+		return ("<%s: line %d, column %d>" %
+			(self.filename, self.line, self.character))
+	__repr__ = repr
+
+class Token(object):
+	'''
+	Represents a parsed token, encoding its value and location.
+	'''
+	def __init__(self, value, location):
+		self.value = value
+		self.location = location
+
+	def repr(self):
+		return "Token('%s', %s)" % (self.value, self.location.repr())
+	__repr__ = repr
+
+def tokenize(fp, filename, eof=True):
 	'''
 	Tokenize a LISP script from a file descriptor.
 	'''
 	S_DEFAULT, S_COMMENT, S_TOKEN, S_STRING = (0, 1, 2, 3)
+
+	cur_line = r_uint(1)
+	cur_char = r_uint(1)
 
 	tokens = []
 	state = S_DEFAULT
 	in_token = False
 	in_comment = False
 	current_token = []
+	token_start = Location(filename, 0, 0)
 	c = os.read(fp, 1)
 	while len(c) > 0:
 		jitdriver.jit_merge_point(state=state, c=c, fp=fp, tokens=tokens, current_token=current_token)
@@ -74,7 +109,7 @@ def tokenize(fp, eof=True):
 			if c not in Characters.TOKEN_VALID:
 				# The token has ended. Add it to the list.
 				state = S_DEFAULT
-				tokens.append(''.join(current_token))
+				tokens.append(Token(''.join(current_token), token_start))
 				# Don't skip the character - process it again.
 				continue
 			current_token.append(c)
@@ -86,10 +121,11 @@ def tokenize(fp, eof=True):
 				current_token.append(os.read(fp, 1))
 			current_token.append(c)
 			if c in Characters.STRING_MARKER:
-				tokens.append(''.join(current_token))
+				tokens.append(Token(''.join(current_token), token_start))
 				state = S_DEFAULT
 		else:
 			# We are floating in a void.
+			token_start = Location(filename, cur_line, cur_char)
 			if c in Characters.COMMENT:
 				state = S_COMMENT
 			elif c in Characters.STRING_MARKER:
@@ -99,8 +135,12 @@ def tokenize(fp, eof=True):
 				state = S_TOKEN
 				current_token = [c]
 			elif c not in Characters.IGNORE:
-				tokens.append(c)
-		if not eof and c == '\n':
-			break
+				tokens.append(Token(c, token_start))
+		cur_char = cur_char + 1
+		if c == '\n':
+			cur_char = 1
+			cur_line = cur_line + 1
+			if not eof:
+				break
 		c = os.read(fp, 1)
 	return tokens

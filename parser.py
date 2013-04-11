@@ -51,21 +51,21 @@ def parse_string(token):
 @purefunction
 def atom(token):
 	try:
-		ival = int(token)
+		ival = int(token.value)
 		return interpreter.LispObject(interpreter.T_INT, val_int=ival)
 	except ValueError:
 		pass
 	try:
-		fval = float(token)
+		fval = float(token.value)
 		return interpreter.LispObject(interpreter.T_FLOAT, val_float=fval)
 	except ValueError:
 		pass
 	try:
-		sval = parse_string(token)
+		sval = parse_string(token.value)
 		return interpreter.LispObject(interpreter.T_STR, val_str=sval)
 	except ValueError:
 		pass
-	return interpreter.LispObject(interpreter.T_REF, val_str=token)
+	return interpreter.LispObject(interpreter.T_REF, val_str=token.value)
 
 @purefunction
 def parse(tokens):
@@ -75,17 +75,17 @@ def parse(tokens):
 	if not tokens:
 		raise SyntaxError("Unexpected EOF while parsing.")
 	token = tokens.pop(0)
-	if token == Characters.SEXP_OPEN:
-		if tokens[0] == Characters.SEXP_CLOSE:
+	if token.value == Characters.SEXP_OPEN:
+		if tokens[0].value == Characters.SEXP_CLOSE:
 			tokens.pop(0)
 			return interpreter.LispObject(interpreter.T_NIL)
 		
 		res = interpreter.LispObject(interpreter.T_CONS)
 		leaf = res
 		try:
-			while tokens[0] != Characters.SEXP_CLOSE:
+			while tokens[0].value != Characters.SEXP_CLOSE:
 				leaf.car = parse(tokens)
-				if tokens[0] != Characters.SEXP_CLOSE:
+				if tokens[0].value != Characters.SEXP_CLOSE:
 					leaf.cdr = interpreter.LispObject(interpreter.T_CONS)
 				else:
 					leaf.cdr = interpreter.LispObject(interpreter.T_NIL)
@@ -94,9 +94,9 @@ def parse(tokens):
 			raise SyntaxError("Unclosed parentheses")
 		tokens.pop(0)
 		return res
-	elif token == Characters.SEXP_CLOSE:
+	elif token.value == Characters.SEXP_CLOSE:
 		raise SyntaxError("Unexpected %s" % Characters.SEXP_CLOSE)
-	elif token == Characters.QUOTE:
+	elif token.value == Characters.QUOTE:
 		return interpreter.LispObject(interpreter.T_CONS, car=atom('quote'), cdr=parse(tokens))
 	return atom(token)
 
