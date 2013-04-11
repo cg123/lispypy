@@ -123,7 +123,7 @@ class Interpreter(object):
 				try:
 					return proc.func(self, [self.evaluate(e, env) for e in expressions], env)
 				except LispError, e:
-					if e.location == None:
+					if e.location is None:
 						raise LispError(e.message, sexp.loc)
 					raise
 				except Exception, e:
