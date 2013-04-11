@@ -137,10 +137,17 @@ class Interpreter(object):
 			if proc.type_ == T_PROC:
 				return proc.func(self, [self.evaluate(e, env) for e in expressions], env)
 			elif proc.type_ == T_CLOSURE:
-				return self.evaluate(proc.cdr, Environment([a2i_str(s) for s in a2i_list(proc.car)], [self.evaluate(e, env) for e in expressions], env))
+				return self.evaluate(proc.cdr,
+					Environment([a2i_str(s) for s in a2i_list(proc.car)],
+						[self.evaluate(e, env) for e in expressions],
+						env))
 			elif proc.type_ == T_MACRO:
 				params = [self.check_ref(o) for o in a2i_list(proc.car)]
-				return self.evaluate_references(proc.cdr, Environment([a2i_str(s) for s in a2i_list(proc.car)], expressions, env), to_resolve=params)
+				return self.evaluate(
+					self.evaluate_references(proc.cdr,
+						Environment([a2i_str(s) for s in a2i_list(proc.car)], expressions, env),
+						to_resolve=params),
+					env)
 			else:
 				raise TypeError(proc.type_)
 		else:
