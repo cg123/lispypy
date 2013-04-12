@@ -34,9 +34,10 @@ def i2a_bool(b):
 		return false
 def a2i_bool(b):
 	if b.type_ == T_UNIQUE:
-		if b.var_str not in ('#t', '#f'):
+		if b.val_str not in ('#t', '#f'):
 			raise LispError("Expected bool - %s not valid" % b.repr_lisp(), None)
-		return b.var_str == '#t'
+		return b.val_str == '#t'
+	raise LispError("Expected bool, got %s" % b.repr_lisp(), None)
 
 def op_add(interp, args, env):
 	lh = args[0]
@@ -107,9 +108,53 @@ def op_div(interp, args, env):
 	except ZeroDivisionError:
 		raise LispError("Division by zero", None)
 
+def op_lt(interp, args, env):
+	try:
+		(lh, rh) = args
+	except ValueError:
+		raise LispError("Wrong number of arguments to op_lt", None)
+
+	res = False
+	if lh.type_ == T_INT:
+		if rh.type_ == T_INT:
+			res = lh.val_int < rh.val_int
+		elif rh.type_ == T_FLOAT:
+			res = lh.val_int < rh.val_float
+	elif lh.type_ == T_FLOAT:
+		if rh.type_ == T_INT:
+			res = lh.val_float < rh.val_int
+		elif rh.type_ == T_FLOAT:
+			res = lh.val_float < rh.val_float
+
+	return i2a_bool(res)
+
+def op_gt(interp, args, env):
+	try:
+		(lh, rh) = args
+	except ValueError:
+		raise LispError("Wrong number of arguments to op_gt", None)
+
+	lh_val = 0.0
+	if lh.type_ == T_INT:
+		lh_val = float(lh.val_int)
+	else:
+		lh_val = interp.check_float(lh)
+
+	rh_val = 0.0
+	if rh.type_ == T_INT:
+		rh_val = float(rh.val_int)
+	else:
+		rh_val = interp.check_float(rh)
+
+	return i2a_bool(lh_val > rh_val)
+
+
+
 def equal(interp, args, env):
-	lh = args[0]
-	rh = args[1]
+	try:
+		(lh, rh) = args
+	except ValueError:
+		raise LispError("Wrong number of arguments to equal", None)
 	# Either evaluate references or skip if they're the same
 	if lh.type_ == T_REF:
 		if rh.type_ == T_REF:
@@ -181,4 +226,6 @@ def get_all():
 		LispObject(T_PROC, func=repr_, val_str='repr'),
 		LispObject(T_PROC, func=car, val_str='car'),
 		LispObject(T_PROC, func=cdr, val_str='cdr'),
+		LispObject(T_PROC, func=op_lt, val_str='<'),
+		LispObject(T_PROC, func=op_gt, val_str='>'),
 	]

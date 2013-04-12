@@ -91,32 +91,61 @@ class Interpreter(object):
 					return sexp.cdr
 				elif sexp.car.val_str == 'define':
 					# We're defining a variable.
-					(var, exp) = a2i_list(sexp.cdr)
+					try:
+						(var, exp) = a2i_list(sexp.cdr)
+					except ValueError:
+						raise LispError("Wrong number of arguments to define", sexp.loc)
+
 					name = self.check_ref(var)
 					env.set(name, self.evaluate(exp, env))
 					return LispObject(T_NIL)
+
 				elif sexp.car.val_str == 'set!':
-					(var, exp) = a2i_list(sexp.cdr)
+					try:
+						(var, exp) = a2i_list(sexp.cdr)
+					except ValueError:
+						raise LispError("Wrong number of arguments to set!", sexp.loc)
+
 					name = self.check_ref(var)
 					containing = env.find(name)
 					if not containing:
 						raise LispError('Name "%s" undefined' % (name,), var.loc)
 					containing.set(name, self.evaluate(exp, env))
 					return LispObject(T_NIL)
+
 				elif sexp.car.val_str == 'begin':
 					expressions = a2i_list(sexp.cdr)
 					val = LispObject(T_NIL)
 					for exp in expressions:
 						val = self.evaluate(exp, env)
 					return val
+
 				elif sexp.car.val_str == 'lambda':
-					(args, exp) = a2i_list(sexp.cdr)
+					try:
+						(args, exp) = a2i_list(sexp.cdr)
+					except ValueError:
+						raise LispError("Wrong number of arguments to lambda", sexp.loc)
 					return LispObject(T_CLOSURE, car=args, cdr=exp)
+
 				elif sexp.car.val_str == 'defmacro':
-					(name, args, exp) = a2i_list(sexp.cdr)
+					try:
+						(name, args, exp) = a2i_list(sexp.cdr)
+					except ValueError:
+						raise LispError("Wrong number of arguments to defmacro", sexp.loc)
 					env.set(self.check_ref(name), LispObject(T_MACRO, val_str=self.check_ref(name),
 						car=args, cdr=exp))
 					return LispObject(T_NIL)
+
+				elif sexp.car.val_str == 'if':
+					try:
+						(cond, t, f) = a2i_list(sexp.cdr)
+					except ValueError:
+						raise LispError("Wrong number of arguments to if", sexp.loc)
+					res = self.evaluate(cond, env)
+					if builtin.a2i_bool(res):
+						return self.evaluate(t, env)
+					return self.evaluate(f, env)
+
 			expressions = a2i_list(sexp)
 			proc = self.evaluate(expressions.pop(0), env)
 			if proc.type_ == T_PROC:
@@ -126,12 +155,11 @@ class Interpreter(object):
 					if e.location is None:
 						raise LispError(e.message, sexp.loc)
 					raise
-				except Exception, e:
-					print e
 			elif proc.type_ == T_CLOSURE:
+				args = [self.evaluate(e, env) for e in expressions]
 				return self.evaluate(proc.cdr,
 					Environment([a2i_str(s) for s in a2i_list(proc.car)],
-						[self.evaluate(e, env) for e in expressions],
+						args,
 						env))
 			elif proc.type_ == T_MACRO:
 				params = [self.check_ref(o) for o in a2i_list(proc.car)]

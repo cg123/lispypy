@@ -4,8 +4,9 @@
 (defmacro defun (name args exp)
 	(define name (lambda args exp)))
 
-(defun x2 (n)
-	(+ n n))
+(defun factorial (n)
+	(if (< n 2)
+		1
+		(* n (factorial (- n 1)))))
 
-(display (x2 3))
-(display (equal 18 (x2 9)))
+(display "10! =" (factorial 10))
