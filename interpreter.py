@@ -50,7 +50,11 @@ class Environment(object):
 			return None
 		return self.outer.find(var)
 
-jitdriver = JitDriver(greens=['self_','sexp'], reds=['env'])
+
+def location_name(self, sexp):
+	return sexp.repr()
+
+jitdriver = JitDriver(greens=['self_','sexp'], reds=['env'], get_printable_location=location_name)
 
 class Interpreter(object):
 	'''
