@@ -27,11 +27,13 @@ from common import *
 true = LispObject(T_UNIQUE, val_str='#t')
 false = LispObject(T_UNIQUE, val_str='#f')
 
+@purefunction
 def i2a_bool(b):
 	if b:
 		return true
 	else:
 		return false
+@purefunction
 def a2i_bool(b):
 	if b.type_ == T_UNIQUE:
 		if b.val_str not in ('#t', '#f'):
@@ -39,6 +41,7 @@ def a2i_bool(b):
 		return b.val_str == '#t'
 	raise LispError("Expected bool, got %s" % b.repr_lisp(), None)
 
+@purefunction
 def op_add(interp, args, env):
 	lh = args[0]
 	rh = args[1]
@@ -55,6 +58,7 @@ def op_add(interp, args, env):
 	else:
 		raise LispError("Can't add types %s and %s" % (lh, rh), None)
 
+@purefunction
 def op_sub(interp, args, env):
 	lh = args[0]
 	rh = args[1]
@@ -71,6 +75,7 @@ def op_sub(interp, args, env):
 	else:
 		raise LispError("Can't subtract types %s and %s" % (lh, rh), None)
 
+@purefunction
 def op_mul(interp, args, env):
 	lh = args[0]
 	rh = args[1]
@@ -87,6 +92,7 @@ def op_mul(interp, args, env):
 	else:
 		raise LispError("Can't multiply types %s and %s" % (lh, rh), None)
 
+@purefunction
 def op_div(interp, args, env):
 	if len(args) != 2:
 		raise LispError("Expected 2 arguments, got %d" % len(args), None)
@@ -108,6 +114,7 @@ def op_div(interp, args, env):
 	except ZeroDivisionError:
 		raise LispError("Division by zero", None)
 
+@purefunction
 def op_lt(interp, args, env):
 	try:
 		(lh, rh) = args
@@ -128,6 +135,7 @@ def op_lt(interp, args, env):
 
 	return i2a_bool(res)
 
+@purefunction
 def op_gt(interp, args, env):
 	try:
 		(lh, rh) = args
@@ -149,7 +157,7 @@ def op_gt(interp, args, env):
 	return i2a_bool(lh_val > rh_val)
 
 
-
+@purefunction
 def equal(interp, args, env):
 	try:
 		(lh, rh) = args
@@ -201,20 +209,23 @@ def display(interp, args, env):
 	print
 	return LispObject(T_NIL)
 
+@purefunction
 def car(interp, args, env):
 	if len(args) != 1:
 		raise LispError("Too many arguments to car()", None)
 	return interp.check_cons(args[0])[0]
+@purefunction
 def cdr(interp, args, env):
 	if len(args) != 1:
 		raise LispError("Too many arguments to cdr()", None)
 	return interp.check_cons(args[0])[1]
-
+@purefunction
 def repr_(interp, args, env):
 	if len(args) != 1:
 		raise LispError("Too many arguments to repr()", None)
 	return LispObject(T_STR, val_str=args[0].repr_py())
-
+	
+@purefunction
 def get_all():
 	return [
 		LispObject(T_PROC, func=op_add, val_str='+'),

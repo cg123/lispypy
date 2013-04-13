@@ -41,6 +41,7 @@ try:
 	from rpython.rlib.jit import JitDriver, purefunction
 	from rpython.rlib.objectmodel import enforceargs
 	from rpython.rlib.rarithmetic import r_uint
+	from rpython.rlib.rbigint import rbigint
 except ImportError:
 	class JitDriver(object):
 		def __init__(self, *args, **kw): pass
@@ -49,7 +50,13 @@ except ImportError:
 	def purefunction(f): return f
 	def enforceargs(*a, **kw): return lambda f: f
 	r_uint = int
+	class rbigint(long):
+		@staticmethod
+		def fromint(i): return rbigint(i)
+		def fromdecimalstr(s): return rbigint(s)
+		def repr(self): return repr(self)
 
+@purefunction
 def i2a_list(l):
 	res = LispObject(T_CONS, car=l.pop(0))
 	leaf = res
@@ -59,6 +66,7 @@ def i2a_list(l):
 	leaf.cdr = LispObject(T_NIL)
 	return res
 
+@purefunction
 def a2i_list(l):
 	res = []
 	node = l
@@ -69,8 +77,10 @@ def a2i_list(l):
 		res.append(node)
 	return res
 
+@purefunction
 def i2a_str(s):
 	return LispObject(T_STR, val_str=s)
+@purefunction
 def a2i_str(s):
 	if s.type_ not in (T_STR, T_REF):
 		raise TypeError(s)
