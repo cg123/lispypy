@@ -21,47 +21,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import os
-import sys
-
-import tokenizer, lispparser, interpreter, common
-
-def entry_point(argv):
-	try:
-		if argv[1] == '-':
-			fd = 0
-		else:
-			fd = os.open(argv[1], os.O_RDONLY, 0777)
-	except IndexError:
-		print "Usage: %s file" % argv[0]
-		return 1
-	else:
-		interp = interpreter.Interpreter()
-		if fd == 0:
-			try:
-				while True:
-					os.write(1, '> ')
-					try:
-						tokens = tokenizer.tokenize(fd, 'stdin', eof=False)
-						exps = lispparser.parse_all(tokens)
-						for exp in exps:
-							res = interp.evaluate(exp, interp.root)
-							if res.type_ != interpreter.T_NIL:
-								print res.repr_lisp()
-					except common.LispError, e:
-						print '!! At %s:\n\t%s' % (e.location.repr(), e.message)
-			except KeyboardInterrupt:
-				pass
-		else:
-			try:
-				tokens = tokenizer.tokenize(fd, argv[1])
-				for o in lispparser.parse_all(tokens):
-					interp.evaluate(o, interp.root)
-			except interpreter.LispError, e:
-				print '!! At %s:\n\t%s' % (e.location.repr(), e.message)
-	return 0
-
-import sys
-
-if __name__ == '__main__':
-	sys.exit(entry_point(sys.argv))
+from . import common
+from . import tokenizer
+from . import parser
+from . import lispobject
+from . import interpreter

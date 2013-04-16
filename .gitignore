@@ -4,3 +4,6 @@
 *.exe
 *.pdb
 *.suo
+/build/
+/dist/
+*.egg-info
