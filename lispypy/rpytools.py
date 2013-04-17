@@ -22,34 +22,39 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+# If true, print debug information about RPython imports.
+DEBUG_RPYTHON = True
+if DEBUG_RPYTHON:
+    import os
 
-# Lisp interpreter error
-class LispError(Exception):
-    def __init__(self, message, location=None):
-        self.message = message
-        self.location = location
-
-# Type constants
-(T_NIL, T_CONS, T_INT, T_FLOAT, T_STR,
- T_REF, T_PROC, T_CLOSURE, T_UNIQUE, T_MACRO) = range(10)
-
-
-_type2name = dict(zip([T_NIL, T_CONS, T_INT, T_FLOAT, T_STR,
-                       T_REF, T_PROC, T_CLOSURE, T_UNIQUE, T_MACRO],
-                  ['T_NIL', 'T_CONS', 'T_INT', 'T_FLOAT', 'T_STR',
-                   'T_REF', 'T_PROC', 'T_CLOSURE', 'T_UNIQUE', 'T_MACRO']))
+    def debug_info(success, name):
+        msg = '%s %s\n' % (('X' if success else '-'), name)
+        os.write(2, msg)
+else:
+    def debug_info(success, name):
+        pass
 
 
-def type_name(t):
-    return _type2name[t]
-
-# RPython imports
+# enforceargs
+import_success = True
 try:
-    from rpython.rlib.jit import JitDriver, purefunction
     from rpython.rlib.objectmodel import enforceargs
-    from rpython.rlib.rarithmetic import r_uint
-    from rpython.rlib.rbigint import rbigint
 except ImportError:
+    import_success = False
+
+    # Return a dummy decorator
+    def enforceargs(*a, **kw):
+        return lambda f: f
+debug_info(import_success, 'rpython.rlib.objectmodel.enforceargs')
+
+# JitDriver
+import_success = True
+try:
+    from rpython.rlib.jit import JitDriver
+except ImportError:
+    import_success = False
+
+    # Stubbed out dummy JitDriver
     class JitDriver(object):
         def __init__(self, *args, **kw):
             pass
@@ -59,14 +64,44 @@ except ImportError:
 
         def can_enter_jit(self, *args, **kw):
             pass
+debug_info(import_success, 'rpython.rlib.jit.JitDriver')
 
+# purefunction
+import_success = True
+try:
+    from rpython.rlib.jit import purefunction
+except ImportError:
+    import_success = False
+
+    # Dummy decorator
     def purefunction(f):
         return f
+debug_info(import_success, 'rpython.rlib.jit.purefunction')
 
-    def enforceargs(*a, **kw):
-        return lambda f: f
-
+# r_uint
+import_success = True
+try:
+    from rpython.rlib.rarithmetic import r_uint
+except ImportError:
+    import_success = False
     r_uint = int
+debug_info(import_success, 'rpython.rlib.rarithmetic.r_uint')
+
+# ovfcheck
+import_success = True
+try:
+    from rpython.rlib.rarithmetic import ovfcheck
+except ImportError:
+    import_success = False
+    ovfcheck = lambda x: x
+debug_info(import_success, 'rpython.rlib.rarithmetic.ovfcheck')
+
+# rbigint
+import_success = True
+try:
+    from rpython.rlib.rbigint import rbigint
+except ImportError:
+    import_success = False
 
     class rbigint(long):
         @staticmethod
@@ -78,27 +113,4 @@ except ImportError:
 
         def repr(self):
             return repr(self)
-
-hexdigits = '0123456789ABCDEF'
-
-
-def bytetohex(b):
-    assert(abs(b) < 256)
-    d1 = (b % 16)
-    d2 = (b / 16) % 16
-    return hexdigits[d2] + hexdigits[d1]
-
-
-def shorttohex(s):
-    assert(s == s & 0xFFFF)
-    d1 = (s % 16)
-    d2 = (s / 16) % 16
-    d3 = (s / 256) % 16
-    d4 = (s / 4096) % 16
-    return hexdigits[d4] + hexdigits[d3] + hexdigits[d2] + hexdigits[d1]
-
-
-def hexchartoint(h):
-    if h.upper() not in hexdigits:
-        raise SyntaxError("Invalid hex character")
-    return hexdigits.index(h.upper())
+debug_info(import_success, 'rpython.rlib.rbigint.rbigint')
