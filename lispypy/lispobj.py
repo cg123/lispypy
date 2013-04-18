@@ -107,10 +107,11 @@ class LispNativeProc(LispObject):
 class LispClosure(LispObject):
     _typename = 'closure'
 
-    def __init__(self, parameters, expression, location=None):
+    def __init__(self, parameters, expression, env, location=None):
         self.parameters = parameters
         self.expression = expression
         self.location = location
+        self.env = env
 
     def repr(self):
         return '(lambda %s %s)' % (LispCons.wrap([LispReference(s) for s in self.parameters]).repr(),

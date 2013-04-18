@@ -74,129 +74,132 @@ class Interpreter(object):
         builtins = builtin.get_all()
         self.root = Environment([b.name for b in builtins], builtins)
 
-    def evaluate_references(self, sexp, env, to_resolve=()):
+    def evaluate_references(self, sexp, env, to_resolve=(), depth=0):
         if isinstance(sexp, LispReference):
             if (not to_resolve) or (sexp.name in to_resolve):
-                return self.evaluate(sexp, env)
+                return self.evaluate(sexp, env, depth=depth+1)
         elif isinstance(sexp, LispCons):
-            car = self.evaluate_references(sexp.car, env, to_resolve)
-            cdr = self.evaluate_references(sexp.cdr, env, to_resolve)
+            car = self.evaluate_references(sexp.car, env, to_resolve, depth=depth+1)
+            cdr = self.evaluate_references(sexp.cdr, env, to_resolve, depth=depth+1)
             return LispCons(car=car, cdr=cdr, location=sexp.location)
         return sexp
 
-    def evaluate(self, sexp, env):
-        jitdriver.jit_merge_point(self_=self, sexp=sexp, env=env)
-        if isinstance(sexp, LispReference):
-            # Evaluate a reference.
-            containing = env.find(sexp.name)
-            if not containing:
-                raise LispError('Name "%s" undefined' % (sexp.name),
-                                sexp.location)
-            return containing.get(sexp.name)
-        elif (isinstance(sexp, LispNil) or
-              isinstance(sexp, LispNumber) or
-              isinstance(sexp, LispString)):
-            # Constant literal.
-            return sexp
-        elif isinstance(sexp, LispCons):
-            # The expression is a cons. What to do?
-            if isinstance(sexp.car, LispReference):
-                # Sanity check
-                if not isinstance(sexp.cdr, LispCons):
-                    raise LispError("Expected list of arguments", sexp.location)
+    def evaluate(self, sexp, env, depth=0):
+        while True:
+            jitdriver.jit_merge_point(self_=self, sexp=sexp, env=env)
+            if isinstance(sexp, LispReference):
+                # Evaluate a reference.
+                containing = env.find(sexp.name)
+                if not containing:
+                    raise LispError('Name "%s" undefined' % (sexp.name),
+                                    sexp.location)
+                return containing.get(sexp.name)
+            elif (isinstance(sexp, LispNil) or
+                  isinstance(sexp, LispNumber) or
+                  isinstance(sexp, LispString)):
+                # Constant literal.
+                return sexp
+            elif isinstance(sexp, LispCons):
+                # The expression is a cons. What to do?
+                if isinstance(sexp.car, LispReference):
+                    # Sanity check
+                    if not isinstance(sexp.cdr, LispCons):
+                        raise LispError("Expected list of arguments", sexp.location)
 
-                if sexp.car.name == 'quote':
-                    # It's a quote. Just return that sucker unevaluated.
-                    return sexp.cdr
-                elif sexp.car.name == 'define':
-                    # We're defining a variable.
+                    if sexp.car.name == 'quote':
+                        # It's a quote. Just return that sucker unevaluated.
+                        return sexp.cdr
+                    elif sexp.car.name == 'define':
+                        # We're defining a variable.
+                        try:
+                            (var, exp) = sexp.cdr.unwrap()
+                        except ValueError:
+                            raise LispError("Wrong number of arguments to define",
+                                            sexp.location)
+
+                        name = self.check_ref(var)
+                        env.set(name, self.evaluate(exp, env, depth=depth+1))
+                        return LispNil()
+
+                    elif sexp.car.name == 'set!':
+                        try:
+                            (var, exp) = sexp.cdr.unwrap()
+                        except ValueError:
+                            raise LispError("Wrong number of arguments to set!",
+                                            sexp.location)
+
+                        name = self.check_ref(var)
+                        containing = env.find(name)
+                        if not containing:
+                            raise LispError('Name "%s" undefined' % (name,),
+                                            var.location)
+                        containing.set(name, self.evaluate(exp, env, depth=depth+1))
+                        return LispNil()
+
+                    elif sexp.car.name == 'begin':
+                        expressions = sexp.cdr.unwrap()
+                        for exp in expressions[1:-1]:
+                            self.evaluate(exp, env, depth=depth+1)
+                        sexp = expressions[-1]
+
+                    elif sexp.car.name == 'lambda':
+                        try:
+                            (args, exp) = sexp.cdr.unwrap()
+                        except ValueError:
+                            raise LispError("Wrong number of arguments to lambda",
+                                            sexp.location)
+                        arg_names = [self.check_ref(n) for n in self.check_cons(args)]
+                        return LispClosure(parameters=arg_names, expression=exp, env=env)
+
+                    elif sexp.car.name == 'create-macro':
+                        try:
+                            (args, exp) = sexp.cdr.unwrap()
+                        except ValueError:
+                            raise LispError("Wrong number of arguments to create-macro",
+                                            sexp.location)
+                        arg_names = [self.check_ref(n) for n in self.check_cons(args)]
+                        return LispMacro(parameters=arg_names, expression=exp)
+
+                    elif sexp.car.name == 'if':
+                        try:
+                            (cond, t, f) = sexp.cdr.unwrap()
+                        except ValueError:
+                            raise LispError("Wrong number of arguments to if",
+                                            sexp.location)
+                        res = self.evaluate(cond, env, depth=depth+1)
+                        if self.check_bool(res):
+                            sexp = t
+                        else:
+                            sexp = f
+                        continue
+
+                expressions = sexp.unwrap()
+                proc = self.evaluate(expressions.pop(0), env, depth=depth+1)
+                if isinstance(proc, LispNativeProc):
                     try:
-                        (var, exp) = sexp.cdr.unwrap()
-                    except ValueError:
-                        raise LispError("Wrong number of arguments to define",
-                                        sexp.location)
+                        args = [self.evaluate(e, env, depth=depth+1) for e in expressions]
+                        return proc.func(self, args, env)
+                    except LispError, e:
+                        if e.location is None:
+                            raise LispError(e.message, sexp.location)
+                        raise
+                elif isinstance(proc, LispClosure):
+                    args = [self.evaluate(ex, env, depth=depth+1) for ex in expressions]
+                    sexp = proc.expression
+                    env = Environment(proc.parameters, args, proc.env)
+                    continue
 
-                    name = self.check_ref(var)
-                    env.set(name, self.evaluate(exp, env))
-                    return LispNil()
-
-                elif sexp.car.name == 'set!':
-                    try:
-                        (var, exp) = sexp.cdr.unwrap()
-                    except ValueError:
-                        raise LispError("Wrong number of arguments to set!",
-                                        sexp.location)
-
-                    name = self.check_ref(var)
-                    containing = env.find(name)
-                    if not containing:
-                        raise LispError('Name "%s" undefined' % (name,),
-                                        var.location)
-                    containing.set(name, self.evaluate(exp, env))
-                    return LispNil()
-
-                elif sexp.car.name == 'begin':
-                    expressions = sexp.cdr.unwrap()
-                    val = LispNil()
-                    for exp in expressions:
-                        val = self.evaluate(exp, env)
-                    return val
-
-                elif sexp.car.name == 'lambda':
-                    try:
-                        (args, exp) = sexp.cdr.unwrap()
-                    except ValueError:
-                        raise LispError("Wrong number of arguments to lambda",
-                                        sexp.location)
-                    arg_names = [self.check_ref(n) for n in self.check_cons(args)]
-                    return LispClosure(parameters=arg_names, expression=exp)
-
-                elif sexp.car.name == 'create-macro':
-                    try:
-                        (args, exp) = sexp.cdr.unwrap()
-                    except ValueError:
-                        raise LispError("Wrong number of arguments to create-macro",
-                                        sexp.location)
-                    arg_names = [self.check_ref(n) for n in self.check_cons(args)]
-                    return LispMacro(parameters=arg_names, expression=exp)
-
-                elif sexp.car.name == 'if':
-                    try:
-                        (cond, t, f) = sexp.cdr.unwrap()
-                    except ValueError:
-                        raise LispError("Wrong number of arguments to if",
-                                        sexp.location)
-                    res = self.evaluate(cond, env)
-                    if self.check_bool(res):
-                        return self.evaluate(t, env)
-                    return self.evaluate(f, env)
-
-            expressions = sexp.unwrap()
-            proc = self.evaluate(expressions.pop(0), env)
-            if isinstance(proc, LispNativeProc):
-                try:
-                    args = [self.evaluate(e, env) for e in expressions]
-                    return proc.func(self, args, env)
-                except LispError, e:
-                    if e.location is None:
-                        raise LispError(e.message, sexp.location)
-                    raise
-            elif isinstance(proc, LispClosure):
-                args = [self.evaluate(ex, env) for ex in expressions]
-                return self.evaluate(proc.expression,
-                                     Environment(proc.parameters, args, env))
-            elif isinstance(proc, LispMacro):
-                return self.evaluate(
-                    self.evaluate_references(
+                elif isinstance(proc, LispMacro):
+                    sexp = self.evaluate_references(
                         proc.expression,
                         Environment(proc.parameters, expressions, env),
-                        to_resolve=proc.parameters),
-                    env)
+                        to_resolve=proc.parameters, depth=depth+1)
+                    continue
+                else:
+                    raise LispError("Attempt to call %s" % (proc.typename(),),
+                                    proc.location)
             else:
-                raise LispError("Attempt to call %s" % (proc.typename(),),
-                                proc.location)
-        else:
-            raise LispError("I don't understand %s" % (sexp.typename(),), sexp.location)
+                raise LispError("I don't understand %s" % (sexp.typename(),), sexp.location)
 
     @purefunction
     def check_str(self, s):

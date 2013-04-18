@@ -7,10 +7,13 @@
 (defmacro defun (name args exp)
 	(define name (lambda args exp)))
 
-(defun factorial (n)
-	(if (< n 2)
-		1
-  (* n (factorial (- n 1)))))
+(defun _factorial (n acc) 
+    (if (equal n 0)
+        acc
+        (_factorial (- n 1) (* n acc))
+        )
+    )
+(defun factorial (n) (_factorial n 1))
 
 (display factorial)
 (display "2000! =" (factorial 2000))
