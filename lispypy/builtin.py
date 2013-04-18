@@ -70,6 +70,7 @@ def op_lt(interp, args, env):
     except ValueError:
         raise LispError("Wrong number of operands")
 
+    typematch = True
     res = False
     if isinstance(lh, LispInt):
         if isinstance(rh, LispInt):
@@ -79,7 +80,7 @@ def op_lt(interp, args, env):
         elif isinstance(rh, LispBigint):
             res = rbigint.fromint(lh.val_int).lt(rh.val_bigint)
         else:
-            raise LispError("Can't compare types")
+            typematch = False
     elif isinstance(lh, LispFloat):
         if isinstance(rh, LispInt):
             res = lh.val_float < float(rh.val_int)
@@ -88,7 +89,7 @@ def op_lt(interp, args, env):
         elif isinstance(rh, LispBigint):
             res = lh.val_float < rh.val_bigint.tofloat()
         else:
-            raise LispError("Can't compare types")
+            typematch = False
     elif isinstance(lh, LispBigint):
         if isinstance(rh, LispInt):
             res = lh.val_bigint.lt(rbigint.fromint(rh.val_int))
@@ -97,9 +98,52 @@ def op_lt(interp, args, env):
         elif isinstance(rh, LispBigint):
             res = lh.val_bigint.lt(rh.val_bigint)
         else:
-            raise LispError("Can't compare types")
-    else:
-        raise LispError("Can't compare types")
+            typematch = False
+    if not typematch:
+        raise LispError("Can't compare %s and %s" % (lh.typename(),
+                                                     rh.typename()))
+    return LispBool(res)
+
+
+@purefunction
+def op_gt(interp, args, env):
+    try:
+        (lh, rh) = [interp.check_value(v, LispNumber) for v in args]
+    except ValueError:
+        raise LispError("Wrong number of operands")
+
+    typematch = True
+    res = False
+    if isinstance(lh, LispInt):
+        if isinstance(rh, LispInt):
+            res = lh.val_int > rh.val_int
+        elif isinstance(rh, LispFloat):
+            res = float(lh.val_int) > rh.val_float
+        elif isinstance(rh, LispBigint):
+            res = rbigint.fromint(lh.val_int).gt(rh.val_bigint)
+        else:
+            typematch = False
+    elif isinstance(lh, LispFloat):
+        if isinstance(rh, LispInt):
+            res = lh.val_float > float(rh.val_int)
+        elif isinstance(rh, LispFloat):
+            res = lh.val_float > rh.val_float
+        elif isinstance(rh, LispBigint):
+            res = lh.val_float > rh.val_bigint.tofloat()
+        else:
+            typematch = False
+    elif isinstance(lh, LispBigint):
+        if isinstance(rh, LispInt):
+            res = lh.val_bigint.gt(rbigint.fromint(rh.val_int))
+        elif isinstance(rh, LispFloat):
+            res = lh.val_bigint.tofloat() > rh.val_float
+        elif isinstance(rh, LispBigint):
+            res = lh.val_bigint.gt(rh.val_bigint)
+        else:
+            typematch = False
+    if not typematch:
+        raise LispError("Can't compare %s and %s" % (lh.typename(),
+                                                     rh.typename()))
     return LispBool(res)
 
 
@@ -145,5 +189,6 @@ def get_all():
         LispNativeProc(func=repr_, name='repr'),
         LispNativeProc(func=car, name='car'),
         LispNativeProc(func=cdr, name='cdr'),
-        LispNativeProc(func=op_lt, name='<')
+        LispNativeProc(func=op_lt, name='<'),
+        LispNativeProc(func=op_gt, name='>')
     ]
