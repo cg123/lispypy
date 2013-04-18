@@ -32,20 +32,6 @@ class LispError(Exception):
         self.message = message
         self.location = location
 
-# Type constants
-(T_NIL, T_CONS, T_INT, T_FLOAT, T_STR,
- T_REF, T_PROC, T_CLOSURE, T_UNIQUE, T_MACRO) = range(10)
-
-
-_type2name = dict(zip([T_NIL, T_CONS, T_INT, T_FLOAT, T_STR,
-                       T_REF, T_PROC, T_CLOSURE, T_UNIQUE, T_MACRO],
-                  ['T_NIL', 'T_CONS', 'T_INT', 'T_FLOAT', 'T_STR',
-                   'T_REF', 'T_PROC', 'T_CLOSURE', 'T_UNIQUE', 'T_MACRO']))
-
-
-@purefunction
-def type_name(t):
-    return _type2name[t]
 
 hexdigits = '0123456789ABCDEF'
 hex2dec = dict(zip('0123456789ABCDEFabcdef', range(16) + [10, 11, 12, 13, 14, 15]))
