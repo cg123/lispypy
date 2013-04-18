@@ -28,6 +28,57 @@ from .common import *
 from .rpytools import purefunction, rbigint
 
 
+def define(interp, args, env):
+    try:
+        (name, exp) = args
+    except ValueError:
+        raise LispError("Wrong number of arguments to define")
+    name_str = interp.check_ref(name)
+    value = interp.evaluate(exp, env)
+    env.set(name_str, value)
+    return LispNil()
+
+
+def quote(interp, args, env):
+    if len(args) != 1:
+        raise LispError("Wrong number of arguments to quote")
+    return args[0]
+
+
+def setbang(interp, args, env):
+    try:
+        (name, exp) = args
+    except ValueError:
+        raise LispError("Wrong number of arguments to set!")
+    name_str = interp.check_ref(name)
+    value = interp.evaluate(exp, env)
+    containing = env.find(name_str)
+    if not containing:
+        raise LispError('Name "%s" undefined' % (name_str,))
+    containing.set(name_str, value)
+    return LispNil()
+
+
+def lambda_(interp, args, env):
+    try:
+        (argrefs, exp) = args
+    except ValueError:
+        raise LispError("Wrong number of arguments to lambda",
+                        sexp.location)
+    arg_names = [interp.check_ref(n) for n in interp.check_cons(argrefs)]
+    return LispClosure(parameters=arg_names, expression=exp, env=env)
+
+
+def createmacro(interp, args, env):
+    try:
+        (argrefs, exp) = args
+    except ValueError:
+        raise LispError("Wrong number of arguments to create-macro",
+                        sexp.location)
+    arg_names = [interp.check_ref(n) for n in interp.check_cons(argrefs)]
+    return LispMacro(parameters=arg_names, expression=exp)
+
+
 @purefunction
 def op_add(interp, args, env):
     try:
@@ -247,6 +298,11 @@ def repr_(interp, args, env):
 @purefunction
 def get_all():
     return [
+        LispNativeProc(func=define, name='define', evaluate_args=False),
+        LispNativeProc(func=quote, name='quote', evaluate_args=False),
+        LispNativeProc(func=setbang, name='set!', evaluate_args=False),
+        LispNativeProc(func=lambda_, name='lambda', evaluate_args=False),
+        LispNativeProc(func=createmacro, name='create-macro', evaluate_args=False),
         LispNativeProc(func=op_add, name='+'),
         LispNativeProc(func=op_sub, name='-'),
         LispNativeProc(func=op_mul, name='*'),

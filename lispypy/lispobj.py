@@ -94,9 +94,10 @@ class LispReference(LispObject):
 class LispNativeProc(LispObject):
     _typename = 'NativeProc'
 
-    def __init__(self, func, name, location=None):
+    def __init__(self, func, name, evaluate_args=True, location=None):
         self.func = func
         self.name = name
+        self.evaluate_args = evaluate_args
         self.location = location
 
     def repr(self):

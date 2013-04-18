@@ -107,37 +107,7 @@ class Interpreter(object):
                         if not isinstance(sexp.cdr, LispCons):
                             raise LispError("Expected list of arguments", sexp.location)
 
-                        if sexp.car.name == 'quote':
-                            # It's a quote. Just return that sucker unevaluated.
-                            return sexp.cdr
-                        elif sexp.car.name == 'define':
-                            # We're defining a variable.
-                            try:
-                                (var, exp) = sexp.cdr.unwrap()
-                            except ValueError:
-                                raise LispError("Wrong number of arguments to define",
-                                                sexp.location)
-
-                            name = self.check_ref(var)
-                            env.set(name, self.evaluate(exp, env))
-                            return LispNil()
-
-                        elif sexp.car.name == 'set!':
-                            try:
-                                (var, exp) = sexp.cdr.unwrap()
-                            except ValueError:
-                                raise LispError("Wrong number of arguments to set!",
-                                                sexp.location)
-
-                            name = self.check_ref(var)
-                            containing = env.find(name)
-                            if not containing:
-                                raise LispError('Name "%s" undefined' % (name,),
-                                                var.location)
-                            containing.set(name, self.evaluate(exp, env))
-                            return LispNil()
-
-                        elif sexp.car.name == 'begin':
+                        if sexp.car.name == 'begin':
                             expressions = sexp.cdr.unwrap()
                             slice_end = len(expressions)-1
                             if slice_end > 0:
@@ -145,24 +115,6 @@ class Interpreter(object):
                                     self.evaluate(exp, env)
                             sexp = expressions[-1]
                             continue
-
-                        elif sexp.car.name == 'lambda':
-                            try:
-                                (args, exp) = sexp.cdr.unwrap()
-                            except ValueError:
-                                raise LispError("Wrong number of arguments to lambda",
-                                                sexp.location)
-                            arg_names = [self.check_ref(n) for n in self.check_cons(args)]
-                            return LispClosure(parameters=arg_names, expression=exp, env=env)
-
-                        elif sexp.car.name == 'create-macro':
-                            try:
-                                (args, exp) = sexp.cdr.unwrap()
-                            except ValueError:
-                                raise LispError("Wrong number of arguments to create-macro",
-                                                sexp.location)
-                            arg_names = [self.check_ref(n) for n in self.check_cons(args)]
-                            return LispMacro(parameters=arg_names, expression=exp)
 
                         elif sexp.car.name == 'if':
                             try:
@@ -181,7 +133,10 @@ class Interpreter(object):
                     proc = self.evaluate(expressions.pop(0), env)
                     if isinstance(proc, LispNativeProc):
                         try:
-                            args = [self.evaluate(e, env) for e in expressions]
+                            if proc.evaluate_args:
+                                args = [self.evaluate(e, env) for e in expressions]
+                            else:
+                                args = expressions
                             return proc.func(self, args, env)
                         except LispError, e:
                             if e.location is None:
@@ -189,12 +144,18 @@ class Interpreter(object):
                             raise
                     elif isinstance(proc, LispClosure):
                         args = [self.evaluate(ex, env) for ex in expressions]
+                        if len(args) != len(proc.parameters):
+                            raise LispError("Expected %d arguments, got %d" % (
+                                len(proc.parameters), len(args)), sexp.location)
                         sexp = proc.expression
                         env = Environment(proc.parameters, args, proc.env)
                         jitdriver.can_enter_jit(self_=self, sexp=sexp, env=env)
                         continue
 
                     elif isinstance(proc, LispMacro):
+                        if len(expressions) != len(proc.parameters):
+                            raise LispError("Expected %d arguments, got %d" % (
+                                len(proc.parameters), len(expressions)), sexp.location)
                         sexp = self.evaluate_references(
                             proc.expression,
                             Environment(proc.parameters, expressions, env),
