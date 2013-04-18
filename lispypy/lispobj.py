@@ -23,15 +23,17 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from .common import bytetohex, shorttohex, hexchartoint, strtod
-from rpytools import rbigint, ovfcheck
+from rpytools import rbigint, ovfcheck, purefunction
 from parser import parsable
 
 
 @parsable(0)
 class LispObject(object):
-    @staticmethod
-    def typename():
-        return 'LispObject'
+    _typename = 'N/A'
+
+    @purefunction
+    def typename(self):
+        return self._typename
 
     def __init__(self, location=None):
         self.location = location
@@ -49,17 +51,12 @@ class LispObject(object):
 
 
 class LispNil(LispObject):
-    @staticmethod
-    def typename():
-        return 'Nil'
-    pass
+    _typename = 'Nil'
 
 
 @parsable(6)
 class LispBool(LispObject):
-    @staticmethod
-    def typename():
-        return 'bool'
+    _typename = 'bool'
 
     def __init__(self, value, location=None):
         self.value = value
@@ -81,9 +78,7 @@ class LispBool(LispObject):
 
 @parsable(1)
 class LispReference(LispObject):
-    @staticmethod
-    def typename():
-        return 'ref'
+    _typename = 'reference'
 
     def __init__(self, name, location=None):
         self.name = name
@@ -98,9 +93,7 @@ class LispReference(LispObject):
 
 
 class LispNativeProc(LispObject):
-    @staticmethod
-    def typename():
-        return 'NativeProc'
+    _typename = 'NativeProc'
 
     def __init__(self, func, name, location=None):
         self.func = func
@@ -112,9 +105,7 @@ class LispNativeProc(LispObject):
 
 
 class LispClosure(LispObject):
-    @staticmethod
-    def typename():
-        return 'closure'
+    _typename = 'closure'
 
     def __init__(self, parameters, expression, location=None):
         self.parameters = parameters
@@ -127,9 +118,7 @@ class LispClosure(LispObject):
 
 
 class LispMacro(LispObject):
-    @staticmethod
-    def typename():
-        return 'macro'
+    _typename = 'macro'
 
     def __init__(self, parameters, expression, location=None):
         self.parameters = parameters
@@ -142,9 +131,7 @@ class LispMacro(LispObject):
 
 
 class LispCons(LispObject):
-    @staticmethod
-    def typename():
-        return 'cons'
+    _typename = 'cons'
 
     def __init__(self, car, cdr, location=None):
         self.car = car
@@ -178,9 +165,7 @@ class LispCons(LispObject):
 
 
 class LispNumber(LispObject):
-    @staticmethod
-    def typename():
-        return 'number'
+    _typename = 'number'
 
     def op_add(self, rhs):
         raise NotImplementedError("operation on base LispNumber")
@@ -197,9 +182,7 @@ class LispNumber(LispObject):
 
 @parsable(4)
 class LispInt(LispNumber):
-    @staticmethod
-    def typename():
-        return 'int'
+    _typename = 'int'
 
     def __init__(self, val, location=None):
         self.val_int = val
@@ -292,9 +275,7 @@ class LispInt(LispNumber):
 
 @parsable(3)
 class LispBigint(LispNumber):
-    @staticmethod
-    def typename():
-        return 'bigint'
+    _typename = 'bigint'
 
     def __init__(self, val, location=None):
         self.val_bigint = val
@@ -366,9 +347,7 @@ class LispBigint(LispNumber):
 
 @parsable(2)
 class LispFloat(LispNumber):
-    @staticmethod
-    def typename():
-        return 'float'
+    _typename = 'float'
 
     def __init__(self, val, location=None):
         self.val_float = val
@@ -433,9 +412,7 @@ class LispFloat(LispNumber):
 
 @parsable(5)
 class LispString(LispObject):
-    @staticmethod
-    def typename():
-        return 'string'
+    _typename = 'string'
 
     def __init__(self, val, location=None):
         self.val_str = val

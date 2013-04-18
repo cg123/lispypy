@@ -193,10 +193,10 @@ class Interpreter(object):
                         to_resolve=proc.parameters),
                     env)
             else:
-                raise LispError("Attempt to call %s" % ('steve',),
+                raise LispError("Attempt to call %s" % (proc.typename(),),
                                 proc.location)
         else:
-            raise LispError("I don't understand", sexp.location)
+            raise LispError("I don't understand %s" % (sexp.typename(),), sexp.location)
 
     @purefunction
     def check_str(self, s):
@@ -221,5 +221,5 @@ class Interpreter(object):
     @purefunction
     def check_value(self, v, cls):
         if not isinstance(v, cls):
-            raise LispError('Expected %s, got %s' % (cls.typename(), 'steve'), v.location)
+            raise LispError('Expected %s, got %s' % (cls._typename, v.typename()), v.location)
         return v
