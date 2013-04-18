@@ -23,6 +23,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from .lispobj import *
+from .number import *
 from .common import *
 from .rpytools import purefunction, rbigint
 
