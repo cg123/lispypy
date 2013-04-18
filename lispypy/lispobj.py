@@ -24,28 +24,7 @@
 
 from .common import bytetohex, shorttohex, hexchartoint, strtod
 from rpytools import rbigint, ovfcheck
-
-
-parse_list = []
-
-
-def parsable(priority):
-    def decorator(fn):
-        parse_list.append((priority, fn))
-        parse_list.sort(key=lambda t: -t[0])
-        return fn
-    return decorator
-
-
-def parse(token):
-    for (p, cls) in parse_list:
-        try:
-            res = cls.parse(token.value)
-            res.location = token.location
-            return res
-        except:
-            continue
-    raise SyntaxError(token)
+from parser import parsable
 
 
 @parsable(0)

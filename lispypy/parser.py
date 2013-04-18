@@ -24,6 +24,29 @@
 
 from .tokenizer import Characters
 from .rpytools import purefunction
+
+parse_list = []
+
+
+def parsable(priority):
+    def decorator(fn):
+        parse_list.append((priority, fn))
+        parse_list.sort(key=lambda t: -t[0])
+        return fn
+    return decorator
+
+
+def parse_object(token):
+    for (p, cls) in parse_list:
+        try:
+            res = cls.parse(token.value)
+            res.location = token.location
+            return res
+        except:
+            continue
+    raise SyntaxError(token)
+
+
 from . import lispobj
 
 
@@ -62,7 +85,7 @@ def parse(tokens):
         return lispobj.LispCons(car=lispobj.LispReference('quote',
                                                           token.location),
                                 cdr=parse(tokens), location=token.location)
-    return lispobj.parse(token)
+    return parse_object(token)
 
 
 def parse_all(tokens):
