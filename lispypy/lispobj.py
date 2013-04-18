@@ -40,7 +40,9 @@ def parsable(priority):
 def parse(token):
     for (p, cls) in parse_list:
         try:
-            return cls.parse(token)
+            res = cls.parse(token.value)
+            res.location = token.location
+            return res
         except:
             continue
     raise SyntaxError(token)
@@ -48,30 +50,159 @@ def parse(token):
 
 @parsable(0)
 class LispObject(object):
-    @classmethod
-    def parse(cls, data):
+    @staticmethod
+    def typename():
+        return 'LispObject'
+
+    def __init__(self, location=None):
+        self.location = location
+
+    @staticmethod
+    def parse(data):
         raise NotImplementedError("parse() on base LispObject")
+
+    def __repr__(self):
+        return self.repr()
 
     def repr(self):
         return '()'
-    __repr__ = repr
+    #__repr__ = repr
+
+
+class LispNil(LispObject):
+    @staticmethod
+    def typename():
+        return 'Nil'
+    pass
+
+
+@parsable(6)
+class LispBool(LispObject):
+    @staticmethod
+    def typename():
+        return 'bool'
+
+    def __init__(self, value, location=None):
+        self.value = value
+        self.location = location
+
+    def repr(self):
+        if self.value:
+            return '#t'
+        return '#f'
+
+    @staticmethod
+    def parse(data):
+        if data == '#t':
+            return LispBool(True)
+        elif data == '#f':
+            return LispBool(False)
+        raise ValueError("Invalid boolean literal")
 
 
 @parsable(1)
 class LispReference(LispObject):
-    def __init__(self, name):
-        self.name = name
+    @staticmethod
+    def typename():
+        return 'ref'
 
-    @classmethod
-    def parse(cls, data):
+    def __init__(self, name, location=None):
+        self.name = name
+        self.location = location
+
+    @staticmethod
+    def parse(data):
         return LispReference(data)
 
     def repr(self):
         return self.name
-    __repr__ = repr
+
+
+class LispNativeProc(LispObject):
+    @staticmethod
+    def typename():
+        return 'NativeProc'
+
+    def __init__(self, func, name, location=None):
+        self.func = func
+        self.name = name
+        self.location = location
+
+    def repr(self):
+        return self.name
+
+
+class LispClosure(LispObject):
+    @staticmethod
+    def typename():
+        return 'closure'
+
+    def __init__(self, parameters, expression, location=None):
+        self.parameters = parameters
+        self.expression = expression
+        self.location = location
+
+    def repr(self):
+        return '(lambda %s %s)' % (LispCons.wrap([LispReference(s) for s in self.parameters]).repr(),
+                                   self.expression.repr())
+
+
+class LispMacro(LispObject):
+    @staticmethod
+    def typename():
+        return 'macro'
+
+    def __init__(self, parameters, expression, location=None):
+        self.parameters = parameters
+        self.expression = expression
+        self.location = location
+
+    def repr(self):
+        return '(create-macro %s %s)' % (LispCons.wrap([LispReference(s) for s in self.parameters]).repr(),
+                                         self.expression.repr())
+
+
+class LispCons(LispObject):
+    @staticmethod
+    def typename():
+        return 'cons'
+
+    def __init__(self, car, cdr, location=None):
+        self.car = car
+        self.cdr = cdr
+        self.location = location
+
+    @staticmethod
+    def wrap(l):
+        head = LispCons(None, None)
+        node = head
+        while l:
+            node.car = l.pop(0)
+            if l:
+                node.cdr = LispCons(None, None)
+                node = node.cdr
+        node.cdr = LispNil()
+        return head
+
+    def unwrap(self):
+        if isinstance(self.cdr, LispNil):
+            return [self.car]
+        assert isinstance(self.cdr, LispCons)
+        return [self.car] + self.cdr.unwrap()
+
+    def repr(self):
+        if isinstance(self.cdr, LispCons) or isinstance(self.cdr, LispNil):
+            items = self.unwrap()
+            return '(' + ' '.join([o.repr() for o in items]) + ')'
+        else:
+            return '(%s . %s)' % (self.car.repr(), self.cdr.repr())
 
 
 class LispNumber(LispObject):
+    @staticmethod
+    def typename():
+        return 'number'
+
     def op_add(self, rhs):
         raise NotImplementedError("operation on base LispNumber")
 
@@ -86,9 +217,14 @@ class LispNumber(LispObject):
 
 
 @parsable(4)
-class LispInt(LispObject):
-    def __init__(self, val=0):
+class LispInt(LispNumber):
+    @staticmethod
+    def typename():
+        return 'int'
+
+    def __init__(self, val, location=None):
         self.val_int = val
+        self.location = location
 
     def op_add(self, rhs):
         if isinstance(rhs, LispInt):
@@ -166,19 +302,24 @@ class LispInt(LispObject):
             return LispFloat(float(self.val_int) / rhs.val_float)
         raise TypeError(rhs)
 
-    @classmethod
-    def parse(cls, data):
+    @staticmethod
+    def parse(data):
         return LispInt(strtod(data))
 
     def repr(self):
         return '%s' % self.val_int
-    __repr__ = repr
+    #__repr__ = repr
 
 
 @parsable(3)
-class LispBigint(LispObject):
-    def __init__(self, val=rbigint.fromint(0)):
+class LispBigint(LispNumber):
+    @staticmethod
+    def typename():
+        return 'bigint'
+
+    def __init__(self, val, location=None):
         self.val_bigint = val
+        self.location = location
 
     def op_add(self, rhs):
         if isinstance(rhs, LispInt):
@@ -232,8 +373,8 @@ class LispBigint(LispObject):
             return LispFloat(self.val_bigint.tofloat() / rhs.val_float)
         raise TypeError(rhs)
 
-    @classmethod
-    def parse(cls, data):
+    @staticmethod
+    def parse(data):
         for c in data:
             if c not in '0123456789':
                 raise ValueError('Invalid bigint literal')
@@ -241,13 +382,18 @@ class LispBigint(LispObject):
 
     def repr(self):
         return self.val_bigint.repr()
-    __repr__ = repr
+    #__repr__ = repr
 
 
 @parsable(2)
-class LispFloat(LispObject):
-    def __init__(self, val=0.0):
+class LispFloat(LispNumber):
+    @staticmethod
+    def typename():
+        return 'float'
+
+    def __init__(self, val, location=None):
         self.val_float = val
+        self.location = location
 
     def op_add(self, rhs):
         if isinstance(rhs, LispInt):
@@ -297,18 +443,27 @@ class LispFloat(LispObject):
             return LispFloat(self.val_float / rhs.val_float)
         raise TypeError(rhs)
 
+    @staticmethod
+    def parse(data):
+        return LispFloat(float(data))
+
     def repr(self):
         return '%f' % self.val_float
-    __repr__ = repr
+    #__repr__ = repr
 
 
 @parsable(5)
 class LispString(LispObject):
-    def __init__(self, val=u''):
-        self.val_str = unicode(val)
+    @staticmethod
+    def typename():
+        return 'string'
 
-    @classmethod
-    def parse(cls, data):
+    def __init__(self, val, location=None):
+        self.val_str = val
+        self.location = location
+
+    @staticmethod
+    def parse(data):
         '''
         Parse a string in LISP source text form.
         '''
@@ -322,7 +477,7 @@ class LispString(LispObject):
         for c in data:
             # Default state - beginning of token
             if state == S_BEG:
-                if c == u'"':
+                if c == '"':
                     state = S_CHR
                 else:
                     raise SyntaxError("Not a string literal")
@@ -333,38 +488,38 @@ class LispString(LispObject):
 
             # Inside a string literal
             elif state == S_CHR:
-                if c == u'\\':
+                if c == '\\':
                     state = S_ESC
-                elif c == u'"':
+                elif c == '"':
                     state = S_END
                 else:
-                    chunks.append(unicode(c))
+                    chunks.append(c)
 
             # Processing an escape sequence
             elif state == S_ESC:
-                if c == u'x':
+                if c == 'x':
                     state = S_HEX
                     codepoint = 0
                     digits_left = 2
-                elif c == u'u':
+                elif c == '':
                     state = S_HEX
                     codepoint = 0
                     digits_left = 4
-                elif c == u'U':
+                elif c == '':
                     state = S_HEX
                     codepoint = 0
                     digits_left = 8
-                elif c == u'n':
-                    chunks.append(u'\n')
+                elif c == 'n':
+                    chunks.append('\n')
                     state = S_CHR
-                elif c == u'r':
-                    chunks.append(u'\r')
+                elif c == 'r':
+                    chunks.append('\r')
                     state = S_CHR
-                elif c == u't':
-                    chunks.append(u'\t')
+                elif c == 't':
+                    chunks.append('\t')
                     state = S_CHR
-                elif c in u'\\"':
-                    chunks.append(unicode(c))
+                elif c in '\\"':
+                    chunks.append(c)
                     state = S_CHR
                 else:
                     raise SyntaxError("Unknown escape sequence")
@@ -374,11 +529,11 @@ class LispString(LispObject):
                 codepoint = (codepoint << 4) + hexchartoint(c)
                 digits_left = digits_left - 1
                 if not digits_left:
-                    chunks.append(unichr(codepoint))
+                    chunks.append(chr(codepoint))
                     state = S_CHR
         if state != S_END:
             raise SyntaxError("Unterminated string literal")
-        return LispString(u''.join(chunks))
+        return LispString(''.join(chunks))
 
     def repr(self):
         '''
@@ -400,10 +555,10 @@ class LispString(LispObject):
                 res.append('\\x' + bytetohex(ucp))
             elif ucp <= 0xFFFF:
                 # Unicode shenanigans. Hrmgasdkmf.
-                res.append('\\u' + shorttohex(ucp))
+                res.append('\\' + shorttohex(ucp))
             else:
                 # GRBgldmfsdmbvbasdf.
-                res.append('\\U' + shorttohex((ucp / 0x10000) & 0xFFFF) + shorttohex(ucp & 0xFFFF))
+                res.append('\\' + shorttohex((ucp / 0x10000) & 0xFFFF) + shorttohex(ucp & 0xFFFF))
         res.append('"')
         return ''.join(res)
-    __repr__ = repr
+    #__repr__ = repr

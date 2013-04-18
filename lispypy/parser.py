@@ -24,50 +24,7 @@
 
 from .tokenizer import Characters
 from .rpytools import purefunction
-from . import interpreter
-
-
-@purefunction
-def parse_string(token):
-    parts = [c for c in token]
-    if parts.pop(0) != '"':
-        raise ValueError("Not a string literal")
-
-    res = []
-    while parts:
-        c = parts.pop(0)
-        if c in Characters.ESCAPE:
-            res.append(parts.pop(0))
-        elif c in Characters.STRING_MARKER:
-            if parts:
-                raise ValueError("Trailing characters in string literal")
-            else:
-                return ''.join(res)
-        res.append(c)
-
-
-@purefunction
-def atom(token):
-    try:
-        ival = int(token.value)
-        return interpreter.LispObject(interpreter.T_INT,
-                                      val_int=ival, loc=token.location)
-    except ValueError:
-        pass
-    try:
-        fval = float(token.value)
-        return interpreter.LispObject(interpreter.T_FLOAT,
-                                      val_float=fval, loc=token.location)
-    except ValueError:
-        pass
-    try:
-        sval = parse_string(token.value)
-        return interpreter.LispObject(interpreter.T_STR,
-                                      val_str=sval, loc=token.location)
-    except ValueError:
-        pass
-    return interpreter.LispObject(interpreter.T_REF,
-                                  val_str=token.value, loc=token.location)
+from . import lispobj
 
 
 @purefunction
@@ -81,18 +38,19 @@ def parse(tokens):
     if token.value == Characters.SEXP_OPEN:
         if tokens[0].value == Characters.SEXP_CLOSE:
             tokens.pop(0)
-            return interpreter.LispObject(interpreter.T_NIL, loc=token.location)
+            return lispobj.LispNil(token.location)
 
-        res = interpreter.LispObject(interpreter.T_CONS, loc=token.location)
+        res = lispobj.LispCons(car=None, cdr=None, location=token.location)
         leaf = res
         try:
             while tokens[0].value != Characters.SEXP_CLOSE:
                 leaf.car = parse(tokens)
                 if tokens[0].value != Characters.SEXP_CLOSE:
-                    leaf.cdr = interpreter.LispObject(interpreter.T_CONS,
-                                                      loc=tokens[0].location)
+                    leaf.cdr = lispobj.LispCons(car=None,
+                                                cdr=None,
+                                                location=tokens[0].location)
                 else:
-                    leaf.cdr = interpreter.LispObject(interpreter.T_NIL)
+                    leaf.cdr = lispobj.LispNil()
                 leaf = leaf.cdr
         except IndexError:
             raise SyntaxError("Unclosed parentheses")
@@ -101,12 +59,10 @@ def parse(tokens):
     elif token.value == Characters.SEXP_CLOSE:
         raise SyntaxError("Unexpected %s" % Characters.SEXP_CLOSE)
     elif token.value == Characters.QUOTE:
-        return interpreter.LispObject(
-            interpreter.T_CONS,
-            car=interpreter.LispObject(interpreter.T_REF,
-                                       val_str='quote', loc=token.location),
-            cdr=parse(tokens), loc=token.location)
-    return atom(token)
+        return lispobj.LispCons(car=lispobj.LispReference('quote',
+                                                          token.location),
+                                cdr=parse(tokens), location=token.location)
+    return lispobj.parse(token)
 
 
 def parse_all(tokens):

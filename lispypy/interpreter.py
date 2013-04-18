@@ -22,9 +22,11 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from .lispobject import *
+from .lispobj import (LispObject, LispCons, LispNumber, LispClosure, LispInt,
+                      LispReference, LispString, LispNil, LispMacro, LispBool,
+                      LispNativeProc)
 from .common import LispError
-from .rpytools import JitDriver, purefunction
+from .rpytools import JitDriver, purefunction, enforceargs
 from . import builtin
 
 
@@ -56,9 +58,9 @@ class Environment(object):
 
 
 def location_name(self, sexp):
-    if not sexp.loc:
+    if not sexp.location:
         return '???'
-    return sexp.loc.repr()
+    return sexp.location.repr()
 
 jitdriver = JitDriver(greens=['self_', 'sexp'], reds=['env'],
                       get_printable_location=location_name)
@@ -70,170 +72,154 @@ class Interpreter(object):
     '''
     def __init__(self):
         builtins = builtin.get_all()
-        self.root = Environment([b.val_str for b in builtins], builtins)
+        self.root = Environment([b.name for b in builtins], builtins)
 
     def evaluate_references(self, sexp, env, to_resolve=()):
-        if sexp.type_ == T_REF:
-            if (not to_resolve) or (sexp.val_str in to_resolve):
+        if isinstance(sexp, LispReference):
+            if (not to_resolve) or (sexp.name in to_resolve):
                 return self.evaluate(sexp, env)
-        elif sexp.type_ == T_CONS:
+        elif isinstance(sexp, LispCons):
             car = self.evaluate_references(sexp.car, env, to_resolve)
             cdr = self.evaluate_references(sexp.cdr, env, to_resolve)
-            return LispObject(T_CONS, car=car, cdr=cdr)
+            return LispCons(car=car, cdr=cdr, location=sexp.location)
         return sexp
 
     def evaluate(self, sexp, env):
         jitdriver.jit_merge_point(self_=self, sexp=sexp, env=env)
-        if sexp.type_ == T_REF:
+        if isinstance(sexp, LispReference):
             # Evaluate a reference.
-            if sexp.val_str is None:
-                raise LispError('Lookup of null name', sexp.loc)
-            containing = env.find(sexp.val_str)
+            containing = env.find(sexp.name)
             if not containing:
-                raise LispError('Name "%s" undefined' % (sexp.val_str),
-                                sexp.loc)
-            return containing.get(sexp.val_str)
-        elif sexp.type_ in (T_NIL, T_INT, T_FLOAT, T_STR):
+                raise LispError('Name "%s" undefined' % (sexp.name),
+                                sexp.location)
+            return containing.get(sexp.name)
+        elif (isinstance(sexp, LispNil) or
+              isinstance(sexp, LispNumber) or
+              isinstance(sexp, LispString)):
             # Constant literal.
             return sexp
-        elif sexp.type_ == T_CONS:
+        elif isinstance(sexp, LispCons):
             # The expression is a cons. What to do?
-            if sexp.car.type_ == T_REF:
-                if sexp.car.val_str == 'quote':
+            if isinstance(sexp.car, LispReference):
+                # Sanity check
+                if not isinstance(sexp.cdr, LispCons):
+                    raise LispError("Expected list of arguments", sexp.location)
+
+                if sexp.car.name == 'quote':
                     # It's a quote. Just return that sucker unevaluated.
                     return sexp.cdr
-                elif sexp.car.val_str == 'define':
+                elif sexp.car.name == 'define':
                     # We're defining a variable.
                     try:
-                        (var, exp) = a2i_list(sexp.cdr)
+                        (var, exp) = sexp.cdr.unwrap()
                     except ValueError:
                         raise LispError("Wrong number of arguments to define",
-                                        sexp.loc)
+                                        sexp.location)
 
                     name = self.check_ref(var)
                     env.set(name, self.evaluate(exp, env))
-                    return LispObject(T_NIL)
+                    return LispNil()
 
-                elif sexp.car.val_str == 'set!':
+                elif sexp.car.name == 'set!':
                     try:
-                        (var, exp) = a2i_list(sexp.cdr)
+                        (var, exp) = sexp.cdr.unwrap()
                     except ValueError:
                         raise LispError("Wrong number of arguments to set!",
-                                        sexp.loc)
+                                        sexp.location)
 
                     name = self.check_ref(var)
                     containing = env.find(name)
                     if not containing:
                         raise LispError('Name "%s" undefined' % (name,),
-                                        var.loc)
+                                        var.location)
                     containing.set(name, self.evaluate(exp, env))
-                    return LispObject(T_NIL)
+                    return LispNil()
 
-                elif sexp.car.val_str == 'begin':
-                    expressions = a2i_list(sexp.cdr)
-                    val = LispObject(T_NIL)
+                elif sexp.car.name == 'begin':
+                    expressions = sexp.cdr.unwrap()
+                    val = LispNil()
                     for exp in expressions:
                         val = self.evaluate(exp, env)
                     return val
 
-                elif sexp.car.val_str == 'lambda':
+                elif sexp.car.name == 'lambda':
                     try:
-                        (args, exp) = a2i_list(sexp.cdr)
+                        (args, exp) = sexp.cdr.unwrap()
                     except ValueError:
                         raise LispError("Wrong number of arguments to lambda",
-                                        sexp.loc)
-                    return LispObject(T_CLOSURE, car=args, cdr=exp)
+                                        sexp.location)
+                    arg_names = [self.check_ref(n) for n in self.check_cons(args)]
+                    return LispClosure(parameters=arg_names, expression=exp)
 
-                elif sexp.car.val_str == 'defmacro':
+                elif sexp.car.name == 'create-macro':
                     try:
-                        (name, args, exp) = a2i_list(sexp.cdr)
+                        (args, exp) = sexp.cdr.unwrap()
                     except ValueError:
-                        raise LispError("Wrong number of arguments to defmacro",
-                                        sexp.loc)
-                    env.set(self.check_ref(name),
-                            LispObject(T_MACRO, val_str=self.check_ref(name),
-                                       car=args, cdr=exp))
-                    return LispObject(T_NIL)
+                        raise LispError("Wrong number of arguments to create-macro",
+                                        sexp.location)
+                    arg_names = [self.check_ref(n) for n in self.check_cons(args)]
+                    return LispMacro(parameters=arg_names, expression=exp)
 
-                elif sexp.car.val_str == 'if':
+                elif sexp.car.name == 'if':
                     try:
-                        (cond, t, f) = a2i_list(sexp.cdr)
+                        (cond, t, f) = sexp.cdr.unwrap()
                     except ValueError:
                         raise LispError("Wrong number of arguments to if",
-                                        sexp.loc)
+                                        sexp.location)
                     res = self.evaluate(cond, env)
-                    if builtin.a2i_bool(res):
+                    if self.check_bool(res):
                         return self.evaluate(t, env)
                     return self.evaluate(f, env)
 
-            expressions = a2i_list(sexp)
+            expressions = sexp.unwrap()
             proc = self.evaluate(expressions.pop(0), env)
-            if proc.type_ == T_PROC:
+            if isinstance(proc, LispNativeProc):
                 try:
                     args = [self.evaluate(e, env) for e in expressions]
                     return proc.func(self, args, env)
                 except LispError, e:
                     if e.location is None:
-                        raise LispError(e.message, sexp.loc)
+                        raise LispError(e.message, sexp.location)
                     raise
-            elif proc.type_ == T_CLOSURE:
-                params = [a2i_str(s) for s in a2i_list(proc.car)]
+            elif isinstance(proc, LispClosure):
                 args = [self.evaluate(ex, env) for ex in expressions]
-                return self.evaluate(proc.cdr, Environment(params, args, env))
-            elif proc.type_ == T_MACRO:
-                params = [self.check_ref(o) for o in a2i_list(proc.car)]
+                return self.evaluate(proc.expression,
+                                     Environment(proc.parameters, args, env))
+            elif isinstance(proc, LispMacro):
                 return self.evaluate(
                     self.evaluate_references(
-                        proc.cdr,
-                        Environment(params, expressions, env),
-                        to_resolve=params),
+                        proc.expression,
+                        Environment(proc.parameters, expressions, env),
+                        to_resolve=proc.parameters),
                     env)
             else:
-                raise LispError("Attempt to call %s" % (type_name(proc.type_),),
-                                proc.loc)
+                raise LispError("Attempt to call %s" % ('steve',),
+                                proc.location)
         else:
-            raise LispError('Unknown object type %s' % (sexp.type_,), sexp.loc)
+            raise LispError("I don't understand", sexp.location)
 
     @purefunction
-    def check_int(self, o):
-        if o.type_ != T_INT:
-            raise LispError('Expected %s, got %s' % (type_name(T_INT),
-                                                     type_name(o.type_)), o.loc)
-        return o.val_int
+    def check_str(self, s):
+        return self.check_value(s, LispString).val_str
 
     @purefunction
-    def check_float(self, o):
-        if o.type_ == T_INT:
-            return float(o.val_int)
-        elif o.type_ == T_FLOAT:
-            return o.val_float
-        raise LispError('Expected %s, got %s' % (type_name(T_FLOAT),
-                                                 type_name(o.type_)), o.loc)
+    def check_ref(self, s):
+        return self.check_value(s, LispReference).name
 
     @purefunction
-    def check_str(self, o):
-        if o.type_ != T_STR:
-            raise LispError('Expected %s, got %s' % (type_name(T_STR),
-                                                     type_name(o.type_)), o.loc)
-        return o.val_str
+    def check_bool(self, s):
+        return self.check_value(s, LispBool).value
 
     @purefunction
-    def check_ref(self, o):
-        if o.type_ != T_REF:
-            raise LispError('Expected %s, got %s' % (type_name(T_STR),
-                                                     type_name(o.type_)), o.loc)
-        return o.val_str
+    def check_int(self, s):
+        return self.check_value(s, LispInt).val_int
 
     @purefunction
-    def check_unique(self, o):
-        if o.type_ != T_UNIQUE:
-            raise LispError('Expected %s, got %s' % (type_name(T_STR),
-                                                     type_name(o.type_)), o.loc)
-        return o.val_str
+    def check_cons(self, s):
+        return self.check_value(s, LispCons).unwrap()
 
     @purefunction
-    def check_cons(self, o):
-        if o.type_ != T_CONS:
-            raise LispError('Expected %s, got %s' % (type_name(T_CONS),
-                                                     type_name(o.type_)), o.loc)
-        return o.car, o.cdr
+    def check_value(self, v, cls):
+        if not isinstance(v, cls):
+            raise LispError('Expected %s, got %s' % (cls.typename(), 'steve'), v.location)
+        return v

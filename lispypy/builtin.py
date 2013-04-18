@@ -22,242 +22,128 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from .lispobject import *
+from .lispobj import *
 from .common import *
-from .rpytools import purefunction
-
-true = LispObject(T_UNIQUE, val_str='#t')
-false = LispObject(T_UNIQUE, val_str='#f')
-
-
-@purefunction
-def i2a_bool(b):
-    if b:
-        return true
-    else:
-        return false
-
-
-@purefunction
-def a2i_bool(b):
-    if b.type_ == T_UNIQUE:
-        if b.val_str not in ('#t', '#f'):
-            raise LispError("Expected bool - %s not valid" % b.repr_lisp())
-        return b.val_str == '#t'
-    raise LispError("Expected bool, got %s" % b.repr_lisp())
+from .rpytools import purefunction, rbigint
 
 
 @purefunction
 def op_add(interp, args, env):
-    lh = args[0]
-    rh = args[1]
-    if lh.type_ == T_INT:
-        if rh.type_ == T_INT:
-            return LispObject(T_INT, val_int=lh.val_int + rh.val_int)
-        elif rh.type_ == T_FLOAT:
-            return LispObject(T_FLOAT, val_float=lh.val_int + rh.val_float)
-    elif lh.type_ == T_FLOAT:
-        if rh.type_ == T_INT:
-            return LispObject(T_FLOAT, val_float=lh.val_float + rh.val_int)
-        elif rh.type_ == T_FLOAT:
-            return LispObject(T_FLOAT, val_float=lh.val_float + rh.val_float)
-    else:
-        raise LispError("Can't add types %s and %s" % (lh, rh))
+    try:
+        (lh, rh) = [interp.check_value(v, LispNumber) for v in args]
+    except ValueError:
+        raise LispError("Wrong number of operands")
+    return lh.op_add(rh)
 
 
 @purefunction
 def op_sub(interp, args, env):
-    lh = args[0]
-    rh = args[1]
-    if lh.type_ == T_INT:
-        if rh.type_ == T_INT:
-            return LispObject(T_INT, val_int=lh.val_int - rh.val_int)
-        elif rh.type_ == T_FLOAT:
-            return LispObject(T_FLOAT, val_float=lh.val_int - rh.val_float)
-    elif lh.type_ == T_FLOAT:
-        if rh.type_ == T_INT:
-            return LispObject(T_FLOAT, val_float=lh.val_float - rh.val_int)
-        elif rh.type_ == T_FLOAT:
-            return LispObject(T_FLOAT, val_float=lh.val_float - rh.val_float)
-    else:
-        raise LispError("Can't subtract types %s and %s" % (lh, rh))
+    try:
+        (lh, rh) = [interp.check_value(v, LispNumber) for v in args]
+    except ValueError:
+        raise LispError("Wrong number of operands")
+    return lh.op_sub(rh)
 
 
 @purefunction
 def op_mul(interp, args, env):
-    lh = args[0]
-    rh = args[1]
-    if lh.type_ == T_INT:
-        if rh.type_ == T_INT:
-            return LispObject(T_INT, val_int=lh.val_int * rh.val_int)
-        elif rh.type_ == T_FLOAT:
-            return LispObject(T_FLOAT, val_float=lh.val_int * rh.val_float)
-    elif lh.type_ == T_FLOAT:
-        if rh.type_ == T_INT:
-            return LispObject(T_FLOAT, val_float=lh.val_float * rh.val_int)
-        elif rh.type_ == T_FLOAT:
-            return LispObject(T_FLOAT, val_float=lh.val_float * rh.val_float)
-    else:
-        raise LispError("Can't multiply types %s and %s" % (lh, rh))
+    try:
+        (lh, rh) = [interp.check_value(v, LispNumber) for v in args]
+    except ValueError:
+        raise LispError("Wrong number of operands")
+    return lh.op_mul(rh)
 
 
 @purefunction
 def op_div(interp, args, env):
-    if len(args) != 2:
-        raise LispError("Expected 2 arguments, got %d" % len(args))
-    lh = args[0]
-    rh = args[1]
     try:
-        if lh.type_ == T_INT:
-            if rh.type_ == T_INT:
-                return LispObject(T_FLOAT,
-                                  val_float=lh.val_int / float(rh.val_int))
-            elif rh.type_ == T_FLOAT:
-                return LispObject(T_FLOAT, val_float=lh.val_int / rh.val_float)
-        elif lh.type_ == T_FLOAT:
-            if rh.type_ == T_INT:
-                return LispObject(T_FLOAT, val_float=lh.val_float / rh.val_int)
-            elif rh.type_ == T_FLOAT:
-                return LispObject(T_FLOAT,
-                                  val_float=lh.val_float / rh.val_float)
-        else:
-            raise LispError("Can't divide types %s and %s" % (lh, rh))
-    except ZeroDivisionError:
-        raise LispError("Division by zero")
+        (lh, rh) = [interp.check_value(v, LispNumber) for v in args]
+    except ValueError:
+        raise LispError("Wrong number of operands")
+    return lh.op_div(rh)
 
 
 @purefunction
 def op_lt(interp, args, env):
     try:
-        (lh, rh) = args
+        (lh, rh) = [interp.check_value(v, LispNumber) for v in args]
     except ValueError:
-        raise LispError("Wrong number of arguments to op_lt")
+        raise LispError("Wrong number of operands")
 
     res = False
-    if lh.type_ == T_INT:
-        if rh.type_ == T_INT:
+    if isinstance(lh, LispInt):
+        if isinstance(rh, LispInt):
             res = lh.val_int < rh.val_int
-        elif rh.type_ == T_FLOAT:
-            res = lh.val_int < rh.val_float
-    elif lh.type_ == T_FLOAT:
-        if rh.type_ == T_INT:
-            res = lh.val_float < rh.val_int
-        elif rh.type_ == T_FLOAT:
-            res = lh.val_float < rh.val_float
-
-    return i2a_bool(res)
-
-
-@purefunction
-def op_gt(interp, args, env):
-    try:
-        (lh, rh) = args
-    except ValueError:
-        raise LispError("Wrong number of arguments to op_gt")
-
-    lh_val = 0.0
-    if lh.type_ == T_INT:
-        lh_val = float(lh.val_int)
-    else:
-        lh_val = interp.check_float(lh)
-
-    rh_val = 0.0
-    if rh.type_ == T_INT:
-        rh_val = float(rh.val_int)
-    else:
-        rh_val = interp.check_float(rh)
-
-    return i2a_bool(lh_val > rh_val)
-
-
-@purefunction
-def equal(interp, args, env):
-    try:
-        (lh, rh) = args
-    except ValueError:
-        raise LispError("Wrong number of arguments to equal")
-    # Either evaluate references or skip if they're the same
-    if lh.type_ == T_REF:
-        if rh.type_ == T_REF:
-            return i2a_bool(lh.val_str == rh.val_str)
+        elif isinstance(rh, LispFloat):
+            res = float(lh.val_int) < rh.val_float
+        elif isinstance(rh, LispBigint):
+            res = rbigint.fromint(lh.val_int).lt(rh.val_bigint)
         else:
-            return equal(interp, [interp.evaluate(lh, env), rh], env)
-    elif rh.type_ == T_REF:
-        return equal(interp, [lh, interp.evaluate(rh, env)], env)
-
-    # Numeric comparison
-    if lh.type_ == T_INT:
-        if rh.type_ == T_INT:
-            return i2a_bool(lh.val_int == rh.val_int)
-        elif rh.type_ == T_FLOAT:
-            return i2a_bool(float(lh.val_int) == rh.val_float)
-    elif lh.type_ == T_FLOAT:
-        if rh.type_ == T_INT:
-            return i2a_bool(float(lh.val_int) == rh.val_float)
-        elif rh.type_ == T_FLOAT:
-            return i2a_bool(lh.val_float == rh.val_float)
-
-    # String comparison
-    if lh.type_ == T_STR:
-        if rh.type_ == T_STR:
-            return i2a_bool(lh.val_str == rh.val_str)
-
-    # 'Unique' comparison
-    if lh.type_ == T_UNIQUE:
-        if rh.type_ == T_UNIQUE:
-            return i2a_bool(lh.val_str == rh.val_str)
-
-    # Nil comparison
-    if lh.type_ == T_NIL:
-        return i2a_bool(rh.type_ == T_NIL)
-
-    raise LispError("Can't compare %s and %s" % (type_name(lh.type_),
-                                                 type_name(rh.type_)))
+            raise LispError("Can't compare types")
+    elif isinstance(lh, LispFloat):
+        if isinstance(rh, LispInt):
+            res = lh.val_float < float(rh.val_int)
+        elif isinstance(rh, LispFloat):
+            res = lh.val_float < rh.val_float
+        elif isinstance(rh, LispBigint):
+            res = lh.val_float < rh.val_bigint.tofloat()
+        else:
+            raise LispError("Can't compare types")
+    elif isinstance(lh, LispBigint):
+        if isinstance(rh, LispInt):
+            res = lh.val_bigint.lt(rbigint.fromint(rh.val_int))
+        elif isinstance(rh, LispFloat):
+            res = lh.val_bigint.tofloat() < rh.val_float
+        elif isinstance(rh, LispBigint):
+            res = lh.val_bigint.lt(rh.val_bigint)
+        else:
+            raise LispError("Can't compare types")
+    else:
+        raise LispError("Can't compare types")
+    return LispBool(res)
 
 
 def display(interp, args, env):
     for o in args:
-        if o.type_ == T_STR:
+        if isinstance(o, LispString):
             print o.val_str,
         else:
-            print o.repr_lisp(),
+            print o.repr(),
     print
-    return LispObject(T_NIL)
+    return LispNil()
 
 
 @purefunction
 def car(interp, args, env):
     if len(args) != 1:
         raise LispError("Too many arguments to car()")
-    return interp.check_cons(args[0])[0]
+    return interp.check_value(args[0], LispCons).car
 
 
 @purefunction
 def cdr(interp, args, env):
     if len(args) != 1:
         raise LispError("Too many arguments to cdr()")
-    return interp.check_cons(args[0])[1]
+    return interp.check_value(args[0], LispCons).cdr
 
 
 @purefunction
 def repr_(interp, args, env):
     if len(args) != 1:
         raise LispError("Too many arguments to repr()")
-    return LispObject(T_STR, val_str=args[0].repr_py())
+    return LispString(args[0].repr())
 
 
 @purefunction
 def get_all():
     return [
-        LispObject(T_PROC, func=op_add, val_str='+'),
-        LispObject(T_PROC, func=op_sub, val_str='-'),
-        LispObject(T_PROC, func=op_mul, val_str='*'),
-        LispObject(T_PROC, func=op_div, val_str='/'),
-        LispObject(T_PROC, func=equal, val_str='equal'),
-        LispObject(T_PROC, func=display, val_str='display'),
-        LispObject(T_PROC, func=repr_, val_str='repr'),
-        LispObject(T_PROC, func=car, val_str='car'),
-        LispObject(T_PROC, func=cdr, val_str='cdr'),
-        LispObject(T_PROC, func=op_lt, val_str='<'),
-        LispObject(T_PROC, func=op_gt, val_str='>'),
+        LispNativeProc(func=op_add, name='+'),
+        LispNativeProc(func=op_sub, name='-'),
+        LispNativeProc(func=op_mul, name='*'),
+        LispNativeProc(func=op_div, name='/'),
+        LispNativeProc(func=display, name='display'),
+        LispNativeProc(func=repr_, name='repr'),
+        LispNativeProc(func=car, name='car'),
+        LispNativeProc(func=cdr, name='cdr'),
+        LispNativeProc(func=op_lt, name='<')
     ]

@@ -48,6 +48,7 @@ def type_name(t):
     return _type2name[t]
 
 hexdigits = '0123456789ABCDEF'
+hex2dec = dict(zip('0123456789ABCDEFabcdef', range(16) + [10, 11, 12, 13, 14, 15]))
 
 
 @purefunction
@@ -70,9 +71,9 @@ def shorttohex(s):
 
 @purefunction
 def hexchartoint(h):
-    if h.upper() not in hexdigits:
+    if h not in hex2dec:
         raise SyntaxError("Invalid hex character")
-    return hexdigits.index(h.upper())
+    return hex2dec[h]
 
 
 @purefunction
@@ -80,6 +81,8 @@ def strtod(s):
     '''
     Parse a decimal string into an int.
     '''
+    if s == '-':
+        raise ValueError("This is just a minus sign.")
     res = 0
     sign = 1
     if s[0] == '-':

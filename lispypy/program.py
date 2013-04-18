@@ -23,7 +23,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import os
-from . import tokenizer, parser, interpreter, common
+from . import tokenizer, parser, interpreter, common, lispobj
 
 
 def main(argv):
@@ -46,8 +46,8 @@ def main(argv):
                         exps = parser.parse_all(tokens)
                         for exp in exps:
                             res = interp.evaluate(exp, interp.root)
-                            if res.type_ != interpreter.T_NIL:
-                                print res.repr_lisp()
+                            if not isinstance(res, lispobj.LispNil):
+                                print res.repr()
                     except common.LispError, e:
                         print '!! At %s:\n\t%s' % (e.location.repr(),
                                                    e.message)
