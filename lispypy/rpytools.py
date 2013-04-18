@@ -114,3 +114,12 @@ except ImportError:
         def repr(self):
             return repr(self)
 debug_info(import_success, 'rpython.rlib.rbigint.rbigint')
+
+# StackOverflow
+import_success = True
+try:
+    from rpython.rlib.rstackovf import StackOverflow
+except ImportError:
+    import_success = False
+    StackOverflow = ((RuntimeError, RuntimeError),)
+debug_info(import_success, 'rpython.rlib.rstackovf.StackOverflow')
