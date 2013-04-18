@@ -22,10 +22,31 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from .common import bytetohex, shorttohex, hexchartoint
+from .common import bytetohex, shorttohex, hexchartoint, strtod
 from rpytools import rbigint, ovfcheck
 
 
+parse_list = []
+
+
+def parsable(priority):
+    def decorator(fn):
+        parse_list.append((priority, fn))
+        parse_list.sort(key=lambda t: -t[0])
+        return fn
+    return decorator
+
+
+def parse(token):
+    for (p, cls) in parse_list:
+        try:
+            return cls.parse(token)
+        except:
+            continue
+    raise SyntaxError(token)
+
+
+@parsable(0)
 class LispObject(object):
     @classmethod
     def parse(cls):
@@ -49,6 +70,7 @@ class LispNumber(LispObject):
         raise NotImplementedError("operation on base LispNumber")
 
 
+@parsable(4)
 class LispInt(LispObject):
     def __init__(self, val=0):
         self.val_int = val
@@ -131,13 +153,14 @@ class LispInt(LispObject):
 
     @classmethod
     def parse(cls, data):
-        return LispInt(int(data))
+        return LispInt(strtod(data))
 
     def repr(self):
         return '%s' % self.val_int
     __repr__ = repr
 
 
+@parsable(3)
 class LispBigint(LispObject):
     def __init__(self, val=rbigint.fromint(0)):
         self.val_bigint = val
@@ -203,6 +226,7 @@ class LispBigint(LispObject):
     __repr__ = repr
 
 
+@parsable(2)
 class LispFloat(LispObject):
     def __init__(self, val=0.0):
         self.val_float = val
@@ -260,6 +284,7 @@ class LispFloat(LispObject):
     __repr__ = repr
 
 
+@parsable(5)
 class LispString(LispObject):
     def __init__(self, val=u''):
         self.val_str = unicode(val)
