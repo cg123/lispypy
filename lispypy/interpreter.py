@@ -22,8 +22,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from .lispobj import (LispObject, LispCons, LispClosure, LispReference,
-                      LispString, LispNil, LispMacro, LispBool, LispNativeProc)
+from .lispobj import (LispCons, LispClosure, LispReference, LispString,
+                      LispNil, LispMacro, LispBool, LispNativeProc)
 from .number import LispNumber, LispInt
 from .common import LispError
 from .rpytools import JitDriver, purefunction, StackOverflow
