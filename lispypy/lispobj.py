@@ -22,8 +22,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from .common import bytetohex, shorttohex, hexchartoint, strtod
-from rpytools import rbigint, ovfcheck, purefunction
+from .common import bytetohex, shorttohex, hexchartoint
+from rpytools import purefunction
 from parser import parsable
 
 
@@ -47,7 +47,6 @@ class LispObject(object):
 
     def repr(self):
         return '()'
-    #__repr__ = repr
 
 
 class LispNil(LispObject):
@@ -272,4 +271,3 @@ class LispString(LispObject):
                 res.append('\\' + shorttohex((ucp / 0x10000) & 0xFFFF) + shorttohex(ucp & 0xFFFF))
         res.append('"')
         return ''.join(res)
-    #__repr__ = repr
