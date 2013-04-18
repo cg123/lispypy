@@ -63,8 +63,7 @@ def lambda_(interp, args, env):
     try:
         (argrefs, exp) = args
     except ValueError:
-        raise LispError("Wrong number of arguments to lambda",
-                        sexp.location)
+        raise LispError("Wrong number of arguments to lambda")
     arg_names = [interp.check_ref(n) for n in interp.check_cons(argrefs)]
     return LispClosure(parameters=arg_names, expression=exp, env=env)
 
@@ -73,8 +72,7 @@ def createmacro(interp, args, env):
     try:
         (argrefs, exp) = args
     except ValueError:
-        raise LispError("Wrong number of arguments to create-macro",
-                        sexp.location)
+        raise LispError("Wrong number of arguments to create-macro")
     arg_names = [interp.check_ref(n) for n in interp.check_cons(argrefs)]
     return LispMacro(parameters=arg_names, expression=exp)
 
