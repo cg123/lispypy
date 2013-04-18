@@ -147,6 +147,71 @@ def op_gt(interp, args, env):
     return LispBool(res)
 
 
+@purefunction
+def _equal(interp, env, lh, rh):
+    # Check for the easy way out
+    if lh is rh:
+        return True
+
+    if isinstance(lh, LispReference):
+        if not isinstance(rh, LispReference):
+            return False
+        return lh.name == rh.name
+    elif isinstance(lh, LispNumber):
+        # Numeric comparison. Dear lord.
+        if isinstance(lh, LispInt):
+            if isinstance(rh, LispInt):
+                return lh.val_int == rh.val_int
+            elif isinstance(rh, LispBigint):
+                return rbigint.fromint(lh.val_int).eq(rh.val_bigint)
+            elif isinstance(rh, LispFloat):
+                return float(lh.val_int) == rh.val_float
+        elif isinstance(lh, LispFloat):
+            if isinstance(rh, LispInt):
+                return lh.val_float == float(rh.val_int)
+            elif isinstance(rh, LispBigint):
+                return lh.val_float == rh.val_bigint.tofloat()
+            elif isinstance(rh, LispFloat):
+                return lh.val_float == rh.val_float
+        elif isinstance(lh, LispBigint):
+            if isinstance(rh, LispInt):
+                return lh.val_bigint.eq(rbigint.fromint(rh.val_int))
+            elif isinstance(rh, LispBigint):
+                return lh.val_bigint.eq(rh.val_bigint)
+            elif isinstance(rh, LispFloat):
+                return lh.val_bigint.tofloat() == rh.val_float
+    elif isinstance(lh, LispString):
+        if not isinstance(rh, LispString):
+            return False
+        return lh.val_str == rh.val_str
+    elif isinstance(lh, LispBool):
+        if not isinstance(rh, LispBool):
+            return False
+        return lh.value == rh.value
+    elif isinstance(lh, LispNil):
+        return isinstance(rh, LispNil)
+    elif isinstance(lh, LispCons):
+        if not isinstance(rh, LispCons):
+            return False
+        nl, nr = (lh, rh)
+        while isinstance(nl, LispCons):
+            if not _equal(interp, env, nl.car, nr.car):
+                return False
+            nl, nr = (nl.cdr, nr.cdr)
+        return _equal(interp, env, nl, nr)
+    raise LispError("Can't compare %s and %s" % (lh.typename(),
+                                                 rh.typename()))
+
+
+@purefunction
+def equal(interp, args, env):
+    try:
+        (lh, rh) = args
+    except ValueError:
+        raise LispError("Wrong number of operands")
+    return LispBool(_equal(interp, env, lh, rh))
+
+
 def display(interp, args, env):
     for o in args:
         if isinstance(o, LispString):
@@ -190,5 +255,6 @@ def get_all():
         LispNativeProc(func=car, name='car'),
         LispNativeProc(func=cdr, name='cdr'),
         LispNativeProc(func=op_lt, name='<'),
-        LispNativeProc(func=op_gt, name='>')
+        LispNativeProc(func=op_gt, name='>'),
+        LispNativeProc(func=equal, name='equal')
     ]
