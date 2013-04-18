@@ -82,9 +82,11 @@ def parse(tokens):
     elif token.value == Characters.SEXP_CLOSE:
         raise SyntaxError("Unexpected %s" % Characters.SEXP_CLOSE)
     elif token.value == Characters.QUOTE:
+        tail = lispobj.LispCons(car=parse(tokens), cdr=lispobj.LispNil(),
+                                location=token.location)
         return lispobj.LispCons(car=lispobj.LispReference('quote',
                                                           token.location),
-                                cdr=parse(tokens), location=token.location)
+                                cdr=tail, location=token.location)
     return parse_object(token)
 
 
