@@ -81,6 +81,10 @@ def strtod(s):
     Parse a decimal string into an int.
     '''
     res = 0
+    sign = 1
+    if s[0] == '-':
+        sign = -1
+        s = s[1:]
     for c in s:
         if c not in '0123456789':
             raise ValueError("Invalid character in int literal")
@@ -88,4 +92,4 @@ def strtod(s):
             res = ovfcheck((res * 10) + (ord(c) - ord('0')))
         except OverflowError:
             raise
-    return res
+    return res * sign

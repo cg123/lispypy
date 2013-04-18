@@ -49,11 +49,26 @@ def parse(token):
 @parsable(0)
 class LispObject(object):
     @classmethod
-    def parse(cls):
+    def parse(cls, data):
         raise NotImplementedError("parse() on base LispObject")
 
     def repr(self):
         return '()'
+    __repr__ = repr
+
+
+@parsable(1)
+class LispReference(LispObject):
+    def __init__(self, name):
+        self.name = name
+
+    @classmethod
+    def parse(cls, data):
+        return LispReference(data)
+
+    def repr(self):
+        return self.name
+    __repr__ = repr
 
 
 class LispNumber(LispObject):
@@ -219,6 +234,9 @@ class LispBigint(LispObject):
 
     @classmethod
     def parse(cls, data):
+        for c in data:
+            if c not in '0123456789':
+                raise ValueError('Invalid bigint literal')
         return LispBigint(rbigint.fromdecimalstr(data))
 
     def repr(self):
