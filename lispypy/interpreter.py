@@ -74,17 +74,17 @@ class Interpreter(object):
         builtins = builtin.get_all()
         self.root = Environment([b.name for b in builtins], builtins)
 
-    def evaluate_references(self, sexp, env, to_resolve=(), depth=0):
+    def evaluate_references(self, sexp, env, to_resolve=()):
         if isinstance(sexp, LispReference):
             if (not to_resolve) or (sexp.name in to_resolve):
-                return self.evaluate(sexp, env, depth=depth+1)
+                return self.evaluate(sexp, env)
         elif isinstance(sexp, LispCons):
-            car = self.evaluate_references(sexp.car, env, to_resolve, depth=depth+1)
-            cdr = self.evaluate_references(sexp.cdr, env, to_resolve, depth=depth+1)
+            car = self.evaluate_references(sexp.car, env, to_resolve)
+            cdr = self.evaluate_references(sexp.cdr, env, to_resolve)
             return LispCons(car=car, cdr=cdr, location=sexp.location)
         return sexp
 
-    def evaluate(self, sexp, env, depth=0):
+    def evaluate(self, sexp, env):
         while True:
             jitdriver.jit_merge_point(self_=self, sexp=sexp, env=env)
             if isinstance(sexp, LispReference):
@@ -118,7 +118,7 @@ class Interpreter(object):
                                             sexp.location)
 
                         name = self.check_ref(var)
-                        env.set(name, self.evaluate(exp, env, depth=depth+1))
+                        env.set(name, self.evaluate(exp, env))
                         return LispNil()
 
                     elif sexp.car.name == 'set!':
@@ -133,14 +133,17 @@ class Interpreter(object):
                         if not containing:
                             raise LispError('Name "%s" undefined' % (name,),
                                             var.location)
-                        containing.set(name, self.evaluate(exp, env, depth=depth+1))
+                        containing.set(name, self.evaluate(exp, env))
                         return LispNil()
 
                     elif sexp.car.name == 'begin':
                         expressions = sexp.cdr.unwrap()
-                        for exp in expressions[1:-1]:
-                            self.evaluate(exp, env, depth=depth+1)
+                        slice_end = len(expressions)-1
+                        if slice_end > 0:
+                            for exp in expressions[0:slice_end]:
+                                self.evaluate(exp, env)
                         sexp = expressions[-1]
+                        continue
 
                     elif sexp.car.name == 'lambda':
                         try:
@@ -166,7 +169,7 @@ class Interpreter(object):
                         except ValueError:
                             raise LispError("Wrong number of arguments to if",
                                             sexp.location)
-                        res = self.evaluate(cond, env, depth=depth+1)
+                        res = self.evaluate(cond, env)
                         if self.check_bool(res):
                             sexp = t
                         else:
@@ -174,26 +177,28 @@ class Interpreter(object):
                         continue
 
                 expressions = sexp.unwrap()
-                proc = self.evaluate(expressions.pop(0), env, depth=depth+1)
+                proc = self.evaluate(expressions.pop(0), env)
                 if isinstance(proc, LispNativeProc):
                     try:
-                        args = [self.evaluate(e, env, depth=depth+1) for e in expressions]
+                        args = [self.evaluate(e, env) for e in expressions]
                         return proc.func(self, args, env)
                     except LispError, e:
                         if e.location is None:
                             raise LispError(e.message, sexp.location)
                         raise
                 elif isinstance(proc, LispClosure):
-                    args = [self.evaluate(ex, env, depth=depth+1) for ex in expressions]
+                    args = [self.evaluate(ex, env) for ex in expressions]
                     sexp = proc.expression
                     env = Environment(proc.parameters, args, proc.env)
+                    jitdriver.can_enter_jit(self_=self, sexp=sexp, env=env)
                     continue
 
                 elif isinstance(proc, LispMacro):
                     sexp = self.evaluate_references(
                         proc.expression,
                         Environment(proc.parameters, expressions, env),
-                        to_resolve=proc.parameters, depth=depth+1)
+                        to_resolve=proc.parameters)
+                    jitdriver.can_enter_jit(self_=self, sexp=sexp, env=env)
                     continue
                 else:
                     raise LispError("Attempt to call %s" % (proc.typename(),),

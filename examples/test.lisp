@@ -15,5 +15,7 @@
     )
 (defun factorial (n) (_factorial n 1))
 
-(display factorial)
-(display "2000! =" (factorial 2000))
+;(display factorial)
+;(display "2000! =" (factorial 2000))
+;(display "6540! =" (factorial 6540))
+(display "20000! =" (factorial 20000))
