@@ -23,7 +23,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from .lispobject import *
-from .common import LispError, JitDriver, purefunction
+from .common import LispError
+from .rpytools import JitDriver, purefunction
 from . import builtin
 
 

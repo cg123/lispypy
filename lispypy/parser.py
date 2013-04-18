@@ -23,7 +23,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from .tokenizer import Characters
-from .common import purefunction
+from .rpytools import purefunction
 from . import interpreter
 
 

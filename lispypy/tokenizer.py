@@ -24,7 +24,7 @@
 
 import os
 
-from .common import enforceargs, r_uint
+from .rpytools import enforceargs, r_uint
 
 
 class Characters(object):
@@ -85,7 +85,7 @@ def tokenize(fp, filename, eof=True):
     tokens = []
     state = S_DEFAULT
     current_token = []
-    token_start = Location(filename, 0, 0)
+    token_start = Location(filename, cur_line, cur_char)
     c = os.read(fp, 1)
     while len(c) > 0:
         if state == S_COMMENT:
@@ -128,7 +128,7 @@ def tokenize(fp, filename, eof=True):
                 tokens.append(Token(c, token_start))
         cur_char = cur_char + 1
         if c == '\n':
-            cur_char = 1
+            cur_char = r_uint(1)
             cur_line = cur_line + 1
             if not eof:
                 break

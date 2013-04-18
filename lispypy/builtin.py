@@ -24,6 +24,7 @@
 
 from .lispobject import *
 from .common import *
+from .rpytools import purefunction
 
 true = LispObject(T_UNIQUE, val_str='#t')
 false = LispObject(T_UNIQUE, val_str='#f')

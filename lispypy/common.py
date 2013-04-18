@@ -23,6 +23,9 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
+from rpytools import ovfcheck, purefunction
+
+
 # Lisp interpreter error
 class LispError(Exception):
     def __init__(self, message, location=None):
@@ -40,48 +43,14 @@ _type2name = dict(zip([T_NIL, T_CONS, T_INT, T_FLOAT, T_STR,
                    'T_REF', 'T_PROC', 'T_CLOSURE', 'T_UNIQUE', 'T_MACRO']))
 
 
+@purefunction
 def type_name(t):
     return _type2name[t]
-
-# RPython imports
-try:
-    from rpython.rlib.jit import JitDriver, purefunction
-    from rpython.rlib.objectmodel import enforceargs
-    from rpython.rlib.rarithmetic import r_uint
-    from rpython.rlib.rbigint import rbigint
-except ImportError:
-    class JitDriver(object):
-        def __init__(self, *args, **kw):
-            pass
-
-        def jit_merge_point(self, *args, **kw):
-            pass
-
-        def can_enter_jit(self, *args, **kw):
-            pass
-
-    def purefunction(f):
-        return f
-
-    def enforceargs(*a, **kw):
-        return lambda f: f
-
-    r_uint = int
-
-    class rbigint(long):
-        @staticmethod
-        def fromint(i):
-            return rbigint(i)
-
-        def fromdecimalstr(s):
-            return rbigint(s)
-
-        def repr(self):
-            return repr(self)
 
 hexdigits = '0123456789ABCDEF'
 
 
+@purefunction
 def bytetohex(b):
     assert(abs(b) < 256)
     d1 = (b % 16)
@@ -89,6 +58,7 @@ def bytetohex(b):
     return hexdigits[d2] + hexdigits[d1]
 
 
+@purefunction
 def shorttohex(s):
     assert(s == s & 0xFFFF)
     d1 = (s % 16)
@@ -98,7 +68,24 @@ def shorttohex(s):
     return hexdigits[d4] + hexdigits[d3] + hexdigits[d2] + hexdigits[d1]
 
 
+@purefunction
 def hexchartoint(h):
     if h.upper() not in hexdigits:
         raise SyntaxError("Invalid hex character")
     return hexdigits.index(h.upper())
+
+
+@purefunction
+def strtod(s):
+    '''
+    Parse a decimal string into an int.
+    '''
+    res = 0
+    for c in s:
+        if c not in '0123456789':
+            raise ValueError("Invalid character in int literal")
+        try:
+            res = ovfcheck((res * 10) + (ord(c) - ord('0')))
+        except OverflowError:
+            raise
+    return res
