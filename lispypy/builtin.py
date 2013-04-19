@@ -197,7 +197,6 @@ def op_gt(interp, args, env):
     return LispBool(res)
 
 
-@purefunction
 def _equal(interp, env, lh, rh):
     # Check for the easy way out
     if lh is rh:
