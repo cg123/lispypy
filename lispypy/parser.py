@@ -59,18 +59,16 @@ def parse(tokens):
         raise SyntaxError("Unexpected EOF while parsing.")
     token = tokens.pop(0)
     if token.value == Characters.SEXP_OPEN:
-        if tokens[0].value == Characters.SEXP_CLOSE:
-            tokens.pop(0)
-            return lispobj.LispNil(token.location)
-
-        res = lispobj.LispCons(car=None, cdr=None, location=token.location)
+        res = lispobj.LispCons(car=lispobj.LispNil(),
+                               cdr=lispobj.LispNil(),
+                               location=token.location)
         leaf = res
         try:
             while tokens[0].value != Characters.SEXP_CLOSE:
                 leaf.car = parse(tokens)
                 if tokens[0].value != Characters.SEXP_CLOSE:
-                    leaf.cdr = lispobj.LispCons(car=None,
-                                                cdr=None,
+                    leaf.cdr = lispobj.LispCons(car=lispobj.LispNil(),
+                                                cdr=lispobj.LispNil(),
                                                 location=tokens[0].location)
                 else:
                     leaf.cdr = lispobj.LispNil()

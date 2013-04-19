@@ -141,6 +141,8 @@ class LispCons(LispObject):
 
     @staticmethod
     def wrap(l):
+        if not l:
+            return LispCons(LispNil(), LispNil())
         head = LispCons(None, None)
         node = head
         while l:
@@ -152,7 +154,9 @@ class LispCons(LispObject):
         return head
 
     def unwrap(self):
-        if isinstance(self.cdr, LispNil):
+        if isinstance(self.car, LispNil):
+            return []
+        elif isinstance(self.cdr, LispNil):
             return [self.car]
         assert isinstance(self.cdr, LispCons)
         return [self.car] + self.cdr.unwrap()

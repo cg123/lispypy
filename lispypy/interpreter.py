@@ -73,6 +73,7 @@ class Interpreter(object):
     def __init__(self):
         builtins = builtin.get_all()
         self.root = Environment([b.name for b in builtins], builtins)
+        self.root.set('nil', LispNil())
 
     def evaluate_references(self, sexp, env, to_resolve=()):
         if isinstance(sexp, LispReference):
