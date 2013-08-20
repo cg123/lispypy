@@ -110,7 +110,10 @@ def op_div(interp, args, env):
         (lh, rh) = [interp.check_value(v, LispNumber) for v in args]
     except ValueError:
         raise LispError("Wrong number of operands")
-    return lh.op_div(rh)
+    try:
+        return lh.op_div(rh)
+    except ZeroDivisionError:
+        raise LispError("Division by zero")
 
 
 @purefunction
