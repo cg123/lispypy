@@ -23,7 +23,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-from rpytools import ovfcheck, purefunction
+from .rpytools import ovfcheck, purefunction
 
 
 # Lisp interpreter error
