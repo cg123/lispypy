@@ -24,6 +24,7 @@
 
 from .tokenizer import Characters
 from .rpytools import purefunction
+from .common import LispError
 
 parse_list = []
 
@@ -56,16 +57,20 @@ def parse(tokens):
     Transform a list of tokens into a S-expression.
     '''
     if not tokens:
-        raise SyntaxError("Unexpected EOF while parsing.")
+        raise EOFError()
     token = tokens.pop(0)
     if token.value == Characters.SEXP_OPEN:
         res = lispobj.LispCons(car=lispobj.LispNil(),
                                cdr=lispobj.LispNil(),
                                location=token.location)
         leaf = res
+        last_loc = leaf.location
         try:
             while tokens[0].value != Characters.SEXP_CLOSE:
-                leaf.car = parse(tokens)
+                try:
+                    leaf.car = parse(tokens)
+                except EOFError:
+                    raise LispError("Unexpected EOF while parsing", last_loc)
                 if tokens[0].value != Characters.SEXP_CLOSE:
                     leaf.cdr = lispobj.LispCons(car=lispobj.LispNil(),
                                                 cdr=lispobj.LispNil(),
@@ -73,12 +78,14 @@ def parse(tokens):
                 else:
                     leaf.cdr = lispobj.LispNil()
                 leaf = leaf.cdr
+                if not isinstance(leaf, lispobj.LispNil) and leaf.cdr:
+                    last_loc = leaf.location
         except IndexError:
-            raise SyntaxError("Unclosed parentheses")
+            raise LispError("Unclosed parentheses", last_loc)
         tokens.pop(0)
         return res
     elif token.value == Characters.SEXP_CLOSE:
-        raise SyntaxError("Unexpected %s" % Characters.SEXP_CLOSE)
+        raise LispError("Unexpected %s" % Characters.SEXP_CLOSE, token.location)
     elif token.value == Characters.QUOTE:
         tail = lispobj.LispCons(car=parse(tokens), cdr=lispobj.LispNil(),
                                 location=token.location)
