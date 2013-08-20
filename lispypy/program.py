@@ -58,6 +58,7 @@ def main(argv):
                 tokens = tokenizer.tokenize(fd, argv[1])
                 for o in parser.parse_all(tokens):
                     interp.evaluate(o, interp.root)
-            except interpreter.LispError, e:
-                print '!! At %s:\n\t%s' % (e.location.repr(), e.message)
+            except common.LispError, e:
+                print '!! At %s:\n\t%s' % (e.location.repr(),
+                                           e.message)
     return 0
