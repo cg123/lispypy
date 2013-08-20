@@ -105,19 +105,22 @@ class Interpreter(object):
                     # The expression is a cons. What to do?
                     if isinstance(sexp.car, LispReference):
                         # Sanity check
-                        if not isinstance(sexp.cdr, LispCons):
-                            raise LispError("Expected list of arguments", sexp.location)
+                        if not (isinstance(sexp.cdr, LispCons) or isinstance(sexp.cdr, LispNil)):
+                            raise LispError("Expected list of arguments or nil", sexp.location)
 
                         if sexp.car.name == 'begin':
-                            expressions = sexp.cdr.unwrap()
-                            slice_end = len(expressions)-1
-                            if slice_end > 0:
-                                for exp in expressions[0:slice_end]:
-                                    self.evaluate(exp, env)
-                            sexp = expressions[-1]
+                            if isinstance(sexp.cdr, LispCons):
+                                expressions = sexp.cdr.unwrap()
+                                slice_end = len(expressions)-1
+                                if slice_end > 0:
+                                    for exp in expressions[0:slice_end]:
+                                        self.evaluate(exp, env)
+                                sexp = expressions[-1]
                             continue
 
                         elif sexp.car.name == 'if':
+                            if not isinstance(sexp.cdr, LispCons):
+                                raise LispError("Expected list of parameters", sexp.location)
                             try:
                                 (cond, t, f) = sexp.cdr.unwrap()
                             except ValueError:
